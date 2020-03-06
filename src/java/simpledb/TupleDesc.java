@@ -2,7 +2,7 @@ package simpledb;
 
 import java.io.Serializable;
 import java.util.*;
-
+import java.util.NoSuchElementException;
 /**
  * TupleDesc describes the schema of a tuple.
  */
@@ -11,6 +11,8 @@ public class TupleDesc implements Serializable {
     /**
      * A help class to facilitate organizing the information of each field
      * */
+    /**主程序在下面，不是这个*/
+    //多抛异常
     public static class TDItem implements Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -18,17 +20,17 @@ public class TupleDesc implements Serializable {
         /**
          * The type of the field
          * */
-        public final Type fieldType;
+        Type fieldType;
         
         /**
          * The name of the field
          * */
-        public final String fieldName;
+        String fieldName;
 
         public TDItem(Type t, String n) {
             this.fieldName = n;
             this.fieldType = t;
-        }
+        }//名字有可能为null
 
         public String toString() {
             return fieldName + "(" + fieldType + ")";
@@ -40,27 +42,65 @@ public class TupleDesc implements Serializable {
      *        An iterator which iterates over all the field TDItems
      *        that are included in this TupleDesc
      * */
+    //typeAr是一共有多少个！！！ 列名是String[] fieldAr
+
+    private int numAr;//在下面"TupleDesc"给数字
+    private TDItem[] rtTd;//在下面"TupleDesc"初始化
+    // private List<TDItem> rtTDI; rtTDI.size(); .get(i);
+
+    //interator写法
+    //见https://www.cnblogs.com/guoyansi19900907/p/12131001.html
     public Iterator<TDItem> iterator() {
-        // some code goes here
-        return null;
+        //some code goes here
+       return new ItrTDI();//就是这个啦！
+    }
+    private class ItrTDI implements Iterator<TDItem>
+    {
+        private int nump=0;
+        public boolean hasNext()
+        {
+            if(nump< rtTd.length)
+                return true;
+            else
+                return false;
+        }
+        public TDItem next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();//？
+            }
+            return rtTd[nump++];
+        }
     }
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;        //不知道是什么
 
     /**
      * Create a new TupleDesc with typeAr.length fields with fields of the
      * specified types, with associated named fields.
      * 
-     * @param typeAr
+     * @param typeAr    一共有多少
      *            array specifying the number of and types of fields in this
      *            TupleDesc. It must contain at least one entry.
      * @param fieldAr
      *            array specifying the names of the fields. Note that names may
-     *            be null.
+     *            be null.注意可能名字为NULL
      */
     public TupleDesc(Type[] typeAr, String[] fieldAr) {
         // some code goes here
-    }
+        if (typeAr.length == 0) {
+            throw new IllegalArgumentException("类型数组长度必须>=1");
+        }
+        if (typeAr.length != fieldAr.length) {
+            throw new IllegalArgumentException("fieldAr的长度需要等于typeAr");
+        }
+        numAr=typeAr.length;
+        rtTd =new TDItem[numAr];//换成List
+        for(int j=0;j<numAr;j++)
+        {
+            rtTd[j]=new TDItem(typeAr[j],fieldAr[j]);
+            //rtTDI.add(new TDItem(typeAr[j],fieldAr[j]));
+        }
+    }//初始化完成
 
     /**
      * Constructor. Create a new tuple desc with typeAr.length fields with
@@ -70,8 +110,9 @@ public class TupleDesc implements Serializable {
      *            array specifying the number of and types of fields in this
      *            TupleDesc. It must contain at least one entry.
      */
-    public TupleDesc(Type[] typeAr) {
+    public TupleDesc(Type[] typeAr) {//没有名字的那种。。。
         // some code goes here
+        this(typeAr, new String[typeAr.length]); //转回1
     }
 
     /**
@@ -79,7 +120,7 @@ public class TupleDesc implements Serializable {
      */
     public int numFields() {
         // some code goes here
-        return 0;
+        return this.numAr;
     }
 
     /**
@@ -93,7 +134,9 @@ public class TupleDesc implements Serializable {
      */
     public String getFieldName(int i) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(i<0||i>=this.numAr)
+            throw new NoSuchElementException();
+        return rtTd[i].fieldName;
     }
 
     /**
@@ -108,7 +151,9 @@ public class TupleDesc implements Serializable {
      */
     public Type getFieldType(int i) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(i<0||i>=this.numAr)
+            throw new NoSuchElementException();
+        return rtTd[i].fieldType;
     }
 
     /**
@@ -120,9 +165,21 @@ public class TupleDesc implements Serializable {
      * @throws NoSuchElementException
      *             if no field with a matching name is found.
      */
+    //@dzq
+    //这里的搜索可改进！Feb.
     public int fieldNameToIndex(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if(name==null)
+            throw new NoSuchElementException();
+        //B树？？？？？ 0224
+        //先遍历好了。。。
+        for (int i = 0; i < rtTd.length; i++) {
+            String temp= rtTd[i].fieldName;
+            if (temp != null && temp.equals(name)) {
+                return i;
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -131,37 +188,76 @@ public class TupleDesc implements Serializable {
      */
     public int getSize() {
         // some code goes here
-        return 0;
+        int totalSize = 0;
+        for (TDItem item : rtTd) {
+            totalSize += item.fieldType.getLen();
+        }
+        return totalSize;
     }
 
     /**
      * Merge two TupleDescs into one, with td1.numFields + td2.numFields fields,
      * with the first td1.numFields coming from td1 and the remaining from td2.
      * 
-     * @param td1
+     * @param //td1
      *            The TupleDesc with the first fields of the new TupleDesc
-     * @param td2
+     * @param //td2
      *            The TupleDesc with the last fields of the TupleDesc
      * @return the new TupleDesc
      */
+    private TupleDesc(TDItem[] tdItems) {
+        if (tdItems == null || tdItems.length == 0) {
+            throw new IllegalArgumentException("数组不能为空且至少包含一个元素");
+        }
+        this.rtTd = tdItems;
+        this.numAr = tdItems.length;
+    }
+    //我改了顺序，看一下行不行,见
     public static TupleDesc merge(TupleDesc td1, TupleDesc td2) {
         // some code goes here
-        return null;
+        int len1=td1.numAr;
+        int len2=td2.numAr;
+        TDItem[] tdItems1 = td1.rtTd;
+        TDItem[] tdItems2 = td2.rtTd;
+        TDItem[] rtItems = new TDItem[len1 + len2];
+        System.arraycopy(tdItems1, 0, rtItems, 0, len1);
+        System.arraycopy(tdItems2, 0, rtItems, len1, len2);
+        return new TupleDesc(rtItems);
+
     }
 
     /**
      * Compares the specified object with this TupleDesc for equality. Two
-     * TupleDescs are considered equal if they have the same number of items
-     * and if the i-th type in this TupleDesc is equal to the i-th type in o
-     * for every i.
+     * TupleDescs are considered equal if they are the same size and if the n-th
+     * type in this TupleDesc is equal to the n-th type in td.
      * 
      * @param o
      *            the Object to be compared for equality with this TupleDesc.
      * @return true if the object is equal to this TupleDesc.
      */
-
+    //整个元组比较？对。
     public boolean equals(Object o) {
         // some code goes here
+        if (this == o) {
+            return true;
+        }
+        if (o instanceof TupleDesc) {
+            TupleDesc another = (TupleDesc) o;
+            if (!(another.numFields() == this.numFields())) {
+                return false;
+            }
+
+            for (int i = 0; i < this.numFields(); i++) {
+                boolean nameEquals =( (this.rtTd[i].fieldName == null && another.rtTd[i].fieldName == null)
+                        || this.rtTd[i].fieldName.equals(another.rtTd[i].fieldName));
+                boolean typeEquals = (this.rtTd[i].fieldType.equals(another.rtTd[i].fieldType));
+                boolean jud= (nameEquals && typeEquals);
+                if (!jud) {
+                    return false;
+                }
+            }
+            return true;
+        }
         return false;
     }
 
@@ -180,6 +276,12 @@ public class TupleDesc implements Serializable {
      */
     public String toString() {
         // some code goes here
-        return "";
+        StringBuffer result = new StringBuffer();
+        result.append("Fields: ");
+        for (TDItem tdItem : rtTd) {
+            result.append(tdItem.toString() + ", ");
+        }
+        //result.append(numFields + " Fields in all");
+        return result.toString();
     }
 }
