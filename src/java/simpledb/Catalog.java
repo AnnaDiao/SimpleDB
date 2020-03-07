@@ -22,21 +22,46 @@ public class Catalog {
      * Constructor.
      * Creates a new, empty catalog.
      */
+    private HashMap<String,Integer> nameToId;//下面有函数要求
+    private HashMap<Integer,Table> inToTable;
     public Catalog() {
         // some code goes here
+        nameToId=new HashMap<>();
+        inToTable=new HashMap<>();
     }
 
     /**
      * Add a new table to the catalog.
      * This table's contents are stored in the specified DbFile.
-     * @param file the contents of the table to add;  file.getId() is the identfier of
+     * @param //file the contents of the table to add;  file.getId() is the identfier of
      *    this file/tupledesc param for the calls getTupleDesc and getFile
-     * @param name the name of the table -- may be an empty string.  May not be null.  If a name
+     * @param //name the name of the table -- may be an empty string.  May not be null.  If a name
      * conflict exists, use the last table to be added as the table for a given name.
-     * @param pkeyField the name of the primary key field
+     * @param //pkeyField the name of the primary key field
      */
+
+
+    public class Table{
+        private DbFile file;
+        private String name;
+        private String pkeyField;
+        public Table(DbFile file, String name, String pkeyField)
+        {
+            this.file=file;
+            this.name=name;
+            this.pkeyField=pkeyField;
+
+        }
+    }
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        if(name==null||pkeyField==null)
+            throw new IllegalArgumentException();
+        Table tmpTable=new Table(file,name,pkeyField);
+
+        inToTable.put(file.getId(),tmpTable);
+        nameToId.put(name,file.getId());
+
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,8 +85,10 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
-    }
+        if(!nameToId.containsKey(name))
+            throw new NoSuchElementException();
+        return nameToId.get(name);
+    }//TO DO
 
     /**
      * Returns the tuple descriptor (schema) of the specified table
@@ -71,8 +98,10 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
-    }
+        if(!inToTable.containsKey(tableid))
+            throw new NoSuchElementException();
+        return inToTable.get(tableid).file.getTupleDesc();
+    }//ok
 
     /**
      * Returns the DbFile that can be used to read the contents of the
@@ -82,27 +111,37 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(!inToTable.containsKey(tableid))
+            throw new NoSuchElementException();
+        return inToTable.get(tableid).file;
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
-    }
+        if(!inToTable.containsKey(tableid))
+            throw new NoSuchElementException();
+        //在tuple.java里面
+        return inToTable.get(tableid).pkeyField;
+    }//ok
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
-    }
+        return inToTable.keySet().iterator();//
+    }//Q！
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
-    }
+        if(!inToTable.containsKey(id))
+            throw new NoSuchElementException();
+        //在tuple.java里面
+        return inToTable.get(id).name;
+    }//ok
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        inToTable.clear();
+        nameToId.clear();
     }
     
     /**
