@@ -2,6 +2,8 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.HashMap;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -24,6 +26,12 @@ public class BufferPool {
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
+    /**
+     * 传递给构造函数的默认页数。
+     * 这是其他类使用的。
+     * 缓冲池应该改用构造函数的numPages参数。
+     *
+     * */
     public static final int DEFAULT_PAGES = 50;
 
     /**
@@ -31,8 +39,12 @@ public class BufferPool {
      *
      * @param numPages maximum number of pages in this buffer pool.
      */
+    private int maxPages;  //总页数
+    private HashMap<PageId,Page> idToPages;
     public BufferPool(int numPages) {
         // some code goes here
+        this.maxPages=numPages;
+        this.idToPages=new HashMap<>(this.maxPages);
     }
     
     public static int getPageSize() {
@@ -64,11 +76,34 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
+    /**
+     * We have not provided unit tests for BufferPool.
+     * The functionality you implemented will be tested in the implementation of HeapFile below.
+     * You should use the DbFile.readPage method to access pages of a DbFile.
+     *
+     * */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
-    }
+        if(!idToPages.containsKey(pid))
+        {
+            //throw new NoSuchElementException();
+            /**
+             *
+             *
+             * */
+            int tableId=pid.getTableId();   // Page->Table  见定义和heappageid.java
+            DbFile file=Database.getCatalog().getDatabaseFile(tableId);//
+            Page page=file.readPage(pid);
+            if(idToPages.size()==maxPages)
+                evictPage();//没实现
+            idToPages.put(pid,page);
+            return page;
+        }
+
+        else
+            return idToPages.get(pid);
+    }//tid--看下面！;  tid 和perm 是什么// TO DO
 
     /**
      * Releases the lock on a page.
