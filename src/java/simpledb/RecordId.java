@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 /**
  * A RecordId is a reference to a specific tuple on a specific page of a
- * specific table.
+ * specific table.     rid 指的是tuple
  */
 public class RecordId implements Serializable {
 
@@ -19,8 +19,12 @@ public class RecordId implements Serializable {
      * @param tupleno
      *            the tuple number within the page.
      */
+    private PageId pageId;
+    private int tupleNo;
     public RecordId(PageId pid, int tupleno) {
         // some code goes here
+        this.pageId=pid;
+        this.tupleNo=tupleno;
     }
 
     /**
@@ -28,7 +32,7 @@ public class RecordId implements Serializable {
      */
     public int getTupleNumber() {
         // some code goes here
-        return 0;
+        return tupleNo;
     }
 
     /**
@@ -36,7 +40,7 @@ public class RecordId implements Serializable {
      */
     public PageId getPageId() {
         // some code goes here
-        return null;
+        return pageId;
     }
 
     /**
@@ -48,8 +52,15 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
-    }
+        //throw new UnsupportedOperationException("implement this");
+        if( o instanceof RecordId)
+        {
+            RecordId tmpRid=(RecordId) o;
+            if(tmpRid.getPageId().equals(this.pageId) && tmpRid.getTupleNumber()==this.tupleNo)
+                return true;
+        }
+        return false;
+    }// 记得 没有“==”运算符的调用equals函数！
 
     /**
      * You should implement the hashCode() so that two equal RecordId instances
@@ -60,8 +71,8 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        //throw new UnsupportedOperationException("implement this");
+        return (pageId.getPageNumber()+tupleNo+pageId.getTableId());
     }
 
 }
