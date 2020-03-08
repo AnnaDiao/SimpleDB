@@ -4,7 +4,7 @@ import java.util.*;
 import java.io.*;
 
 /**
- * Each instance of HeapPage stores data for one page of HeapFiles and 
+ * Each instance of HeapPage stores data for one page of HeapFiles and //还没写
  * implements the Page interface that is used by BufferPool.
  *
  * @see HeapFile
@@ -14,7 +14,7 @@ import java.io.*;
 public class HeapPage implements Page {
 
     final HeapPageId pid;
-    final TupleDesc td;
+    final TupleDesc td;     //calculate tuple size
     final byte header[];
     final Tuple tuples[];
     final int numSlots;
@@ -32,7 +32,7 @@ public class HeapPage implements Page {
      * database table, which can be determined via {@link Catalog#getTupleDesc}.
      * The number of 8-bit header words is equal to:
      * <p>
-     *      ceiling(no. tuple slots / 8)
+     *      ceiling(no. tuple slots / 8)        //一个bite 8 bits 1slot=1bit 看占用的
      * <p>
      * @see Database#getCatalog
      * @see Catalog#getTupleDesc
@@ -67,8 +67,10 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        //return numSlots;  <--  !!!看构造函数
+        int tupleSize=td.getSize();
+        int rt=(int)Math.floor((BufferPool.getPageSize()*8)*1.0 / (tupleSize * 8 + 1));
+        return rt;
     }
 
     /**
@@ -78,7 +80,8 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return 0;
+        int rt=(int)Math.ceil(numSlots*1.0/8);
+        return rt;
                  
     }
     
@@ -112,7 +115,8 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+    //throw new UnsupportedOperationException("implement this");
+        return pid;
     }
 
     /**
@@ -277,22 +281,40 @@ public class HeapPage implements Page {
         return null;      
     }
 
+
+
+    /**
+     * Returns true if associated slot on this page is filled.
+     */
+    /**
+     * bitmap中，low bits代表了先填入的slots状态。
+     * 因此，第一个headerByte的最小bit代表了第一个slot是否使用，
+     * 第二小的bit代表了第二个slot是否使用。
+     * 同样，最大headerByte的一些高位可能不与slot存在映射关系，
+     * 只是满足headerBytes的ceiling。
+     *
+     * */
+    //大端存址！[11111111 00000011]
+    public boolean isSlotUsed(int i) {
+        // some code goes here
+        int tarHdr=header[i/8];
+        int fram=i%8;
+        fram=(tarHdr>>fram)&1;
+        return (fram==1);
+    }//TO DO
     /**
      * Returns the number of empty slots on this page.
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int count=0;
+        for(int j=0;j<numSlots;j++)
+        {
+            if(!isSlotUsed(j))
+                count++;
+        }
+        return count;
     }
-
-    /**
-     * Returns true if associated slot on this page is filled.
-     */
-    public boolean isSlotUsed(int i) {
-        // some code goes here
-        return false;
-    }
-
     /**
      * Abstraction to fill or clear a slot on this page.
      */
@@ -307,7 +329,29 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new ItrTup();
+    }
+    private class ItrTup implements Iterator<Tuple>
+    {
+        int count=0,pos=0;
+        int avaTup=getNumTuples()-getNumEmptySlots();
+        public boolean hasNext()
+        {
+            if(count<avaTup)
+                return true;
+            return false;
+        }
+        public Tuple next()
+        {
+            if(!hasNext())
+                throw new NoSuchElementException();
+            while(!isSlotUsed(pos))
+            {
+                pos++;
+            }
+            count++;
+            return tuples[pos++];
+        }
     }
 
 }
