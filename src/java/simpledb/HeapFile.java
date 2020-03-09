@@ -1,8 +1,10 @@
 package simpledb;
 
+import jdk.internal.org.objectweb.asm.tree.TryCatchBlockNode;
+
 import java.io.*;
 import java.util.*;
-
+import java.io.RandomAccessFile;
 /**
  * HeapFile is an implementation of a DbFile that stores a collection of tuples
  * in no particular order. Tuples are stored on pages, each of which is a fixed
@@ -21,9 +23,15 @@ public class HeapFile implements DbFile {
      * @param f
      *            the file that stores the on-disk backing store for this heap
      *            file.
+     *            后备/备份存储器
+     *            file就是磁盘上存heapfile的地方
      */
+    private File oneFile;
+    private TupleDesc tpDesc;
     public HeapFile(File f, TupleDesc td) {
         // some code goes here
+        this.oneFile=f;
+        this.tpDesc=td;
     }
 
     /**
@@ -33,7 +41,7 @@ public class HeapFile implements DbFile {
      */
     public File getFile() {
         // some code goes here
-        return null;
+        return oneFile;
     }
 
     /**
@@ -47,7 +55,9 @@ public class HeapFile implements DbFile {
      */
     public int getId() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        //throw new UnsupportedOperationException("implement this");
+
+        return oneFile.getAbsoluteFile().hashCode();
     }
 
     /**
@@ -57,14 +67,43 @@ public class HeapFile implements DbFile {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        //throw new UnsupportedOperationException("implement this");
+        return tpDesc;
     }
-
+    /**
+     * Read the specified page from disk.
+     *
+     * throws IllegalArgumentException if the page does not exist in this file.
+     */
     // see DbFile.java for javadocs
-    public Page readPage(PageId pid) {
+    //file 存了 page
+    //https://blog.csdn.net/qq_21808961/article/details/80187662 磁盘读写
+    public Page readPage(PageId pid){
         // some code goes here
+        try{
+            RandomAccessFile tmpFile=new RandomAccessFile(oneFile,"r");
+            //页码从0开始
+            int pgNo=pid.getPageNumber();
+            int pageSize=BufferPool.getPageSize();
+            if(pageSize*(pgNo+1)>oneFile.length())
+            {
+                tmpFile.close();
+                throw new IllegalArgumentException("Wrong in HeapFile! pgNo does no exist!");
+
+            }
+            byte[] bytes = new byte[pageSize];
+            tmpFile.seek(pgNo*pageSize);
+            tmpFile.read(bytes);
+            //只能调用继承，不太懂
+            HeapPageId rtId= new HeapPageId(pid.getTableId(),pid.getPageNumber());
+            HeapPage rtPage=new HeapPage(rtId,bytes);
+            return rtPage;
+        }
+        catch (IOException e){
+            e.printStackTrace();
+        }
         return null;
-    }
+    }// TO DO
 
     // see DbFile.java for javadocs
     public void writePage(Page page) throws IOException {
@@ -77,7 +116,8 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return 0;
+        int numPage=(int)Math.floor(oneFile.length()*1.0/BufferPool.getPageSize());
+        return numPage;
     }
 
     // see DbFile.java for javadocs
@@ -97,10 +137,76 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    /**
+     * Returns an iterator over all the tuples stored in this DbFile. The
+     * iterator must use {@link BufferPool#getPage}, rather than
+     * {@link #readPage} to iterate through the pages.
+     *
+     * @return an iterator over all the tuples stored in this DbFile.
+     */
+    //返回tuple
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
-        return null;
+        return new fileItr(tid);
     }
+    //TransactionId 是什么啊。。。//调bufferpool需要pageid类型
+    private class fileItr implements DbFileIterator{
+        //调用page的Itr
+        int pageNo;
+        private Iterator<Tuple> pageTupleItr;
 
+        private HeapFile file;
+        private TransactionId tid;
+
+        fileItr(TransactionId tid)
+        {
+            this.tid=tid;
+            pageNo=-1;
+            pageTupleItr=null;
+        }
+
+        @Override
+        public void open() throws DbException, TransactionAbortedException {
+            pageNo=0;
+            HeapPageId tmpPgId=new HeapPageId(getId(),pageNo);      //见HeapPageId的声名
+            pageTupleItr=((HeapPage) Database.getBufferPool().getPage(tid,tmpPgId,Permissions.READ_ONLY)).iterator();
+
+        }
+
+        public boolean hasNext() throws TransactionAbortedException, DbException {
+            if(pageNo==-1)
+                return false;
+            if(pageTupleItr.hasNext())
+                return true;
+            if(pageNo<numPages()-1)
+            {
+                pageNo++;
+                HeapPageId tmpPgId=new HeapPageId(getId(),pageNo);
+                pageTupleItr=((HeapPage)Database.getBufferPool().getPage(tid,tmpPgId,Permissions.READ_ONLY)).iterator();
+                return pageTupleItr.hasNext();
+            }
+            return false;
+        }
+
+        @Override
+        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+            if(!hasNext())
+            {
+                throw new NoSuchElementException("Wrong in HeapFile! No next Tuple!");
+            }
+            return pageTupleItr.next();
+        }
+
+        @Override
+        public void rewind() throws DbException, TransactionAbortedException {
+                open();
+        }
+
+        @Override
+        public void close() {
+            pageNo=-1;
+            pageTupleItr=null;
+        }
+    }
 }
 
