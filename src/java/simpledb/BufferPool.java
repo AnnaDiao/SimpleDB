@@ -88,22 +88,19 @@ public class BufferPool {
         if(!idToPages.containsKey(pid))
         {
             //throw new NoSuchElementException();
-            /**
-             *
-             *
-             * */
-            int tableId=pid.getTableId();   // Page->Table  见定义和heappageid.java
-            DbFile file=Database.getCatalog().getDatabaseFile(tableId);//
+
+            int tableId=pid.getTableId();   // Page->Table  见定义和heapPageid.java
+            DbFile file=Database.getCatalog().getDatabaseFile(tableId);
             Page page=file.readPage(pid);
             if(idToPages.size()==maxPages)
-                evictPage();//没实现
+                evictPage();               //lab1实现
             idToPages.put(pid,page);
             return page;
         }
 
         else
             return idToPages.get(pid);
-    }//tid--看下面！;  tid 和perm 是什么// TO DO
+    }//tid--看下面！;  tid 和perm 暂时不需要
 
     /**
      * Releases the lock on a page.
