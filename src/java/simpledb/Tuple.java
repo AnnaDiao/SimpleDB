@@ -22,12 +22,13 @@ public class Tuple implements Serializable {
      */
 
     private TupleDesc tupleDesc; //表头
-    //private Field[] fields; //数据
-    private List<Field> fields;//数据
+    private Field[] fields; //数据
+   // private List<Field> fields;//数据
     public Tuple(TupleDesc td) {
         // some code goes here
         this.tupleDesc=td;
-        fields=new ArrayList<>(td.numFields());
+       // fields=new ArrayList<>(td.numFields());
+        fields=new Field[td.numFields()];
     }
 
     /**
@@ -35,7 +36,7 @@ public class Tuple implements Serializable {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return this.tupleDesc;
+        return tupleDesc;
     }//get
 
     /**
@@ -71,8 +72,13 @@ public class Tuple implements Serializable {
     public void setField(int i, Field f) {
         // some code goes here
         if(i<0||i>=tupleDesc.numFields())
+        {
             throw new IllegalArgumentException("Field索引非法");
-        fields.set(i,f);
+
+        }
+        //Field[] tmpField=(Field[]) fields.toArray();
+        fields[i]=f;
+        //fields.set(i,f);
     }
 
     /**
@@ -85,10 +91,10 @@ public class Tuple implements Serializable {
         // some code goes here
         if(i<0||i>=tupleDesc.numFields())
             throw new IllegalArgumentException("Field索引非法");
-        if(fields.get(i)==null)
+        if(fields[i]==null)
             return null;
         else
-            return fields.get(i);
+            return fields[i];
     }
 
     /**
@@ -106,9 +112,9 @@ public class Tuple implements Serializable {
         StringBuffer tmpstr=new StringBuffer();
         for(int j=0;j<tupleDesc.numFields()-1;++j)
         {
-            tmpstr.append(fields.get(j).toString()+'\t');
+            tmpstr.append(fields[j].toString()+'\t');
         }
-        tmpstr.append(fields.get(tupleDesc.numFields()-1).toString()+'\n');
+        tmpstr.append(fields[tupleDesc.numFields()-1].toString()+'\n');
         return tmpstr.toString();
     }
 
@@ -126,7 +132,7 @@ public class Tuple implements Serializable {
         private int nump=0;
         public boolean hasNext()
         {
-            if(nump<fields.size())
+            if(nump<fields.length)
                 return true;
             else
                 return false;
@@ -135,7 +141,7 @@ public class Tuple implements Serializable {
             if (!hasNext()) {
                 throw new NoSuchElementException();//？
             }
-            return fields.get(nump++);
+            return fields[nump++];
         }
     }
     /**
@@ -145,8 +151,8 @@ public class Tuple implements Serializable {
     {
         // some code goes here
         tupleDesc=td;
-        fields.clear();
-        fields=new ArrayList<>(td.numFields());
+        //fields.clear();
+        //fields=new ArrayList<>(td.numFields());
         //fields=new Field[td.numFields()];
     }
 }
