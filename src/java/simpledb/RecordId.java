@@ -52,7 +52,6 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        //throw new UnsupportedOperationException("implement this");
         if( o instanceof RecordId)
         {
             RecordId tmpRid=(RecordId) o;
@@ -71,7 +70,6 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        //throw new UnsupportedOperationException("implement this");
         return (pageId.getPageNumber()+tupleNo+pageId.getTableId());
     }
 
