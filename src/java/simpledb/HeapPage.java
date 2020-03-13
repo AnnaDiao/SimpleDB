@@ -80,8 +80,7 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        int rt=(int)Math.ceil(numSlots*1.0/8);
-        return rt;
+        return (int)Math.ceil(numSlots*1.0/8);
                  
     }
     
@@ -301,7 +300,7 @@ public class HeapPage implements Page {
         int fram=i%8;
         fram=(tarHdr>>fram)&1;
         return (fram==1);
-    }//TO DO
+    }
     /**
      * Returns the number of empty slots on this page.
      */
