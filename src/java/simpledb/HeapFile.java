@@ -55,8 +55,6 @@ public class HeapFile implements DbFile {
      */
     public int getId() {
         // some code goes here
-        //throw new UnsupportedOperationException("implement this");
-
         return oneFile.getAbsoluteFile().hashCode();
     }
 
@@ -67,7 +65,6 @@ public class HeapFile implements DbFile {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        //throw new UnsupportedOperationException("implement this");
         return tpDesc;
     }
     /**
@@ -82,21 +79,22 @@ public class HeapFile implements DbFile {
         // some code goes here
         try{
             RandomAccessFile tmpFile=new RandomAccessFile(oneFile,"r");
-            //页码从0开始
             int pgNo=pid.getPageNumber();
             int pageSize=BufferPool.getPageSize();
-            if(pageSize*(pgNo+1)>oneFile.length())
+            if(pageSize*(pgNo+1)>oneFile.length())         //页码从0开始
             {
                 tmpFile.close();
                 throw new IllegalArgumentException("Wrong in HeapFile! pgNo does no exist!");
-
             }
+
             byte[] bytes = new byte[pageSize];
+
             tmpFile.seek(pgNo*pageSize);
             tmpFile.read(bytes);
             //只能调用继承，不太懂
             HeapPageId rtId= new HeapPageId(pid.getTableId(),pid.getPageNumber());
             HeapPage rtPage=new HeapPage(rtId,bytes);
+
             return rtPage;
         }
         catch (IOException e){
@@ -116,8 +114,7 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        int numPage=(int)Math.floor(oneFile.length()*1.0/BufferPool.getPageSize());
-        return numPage;
+        return (int)Math.floor(oneFile.length()*1.0/BufferPool.getPageSize());
     }
 
     // see DbFile.java for javadocs
@@ -149,7 +146,7 @@ public class HeapFile implements DbFile {
         // some code goes here
         return new fileItr(tid);
     }
-    //TransactionId 是什么啊。。。//调bufferpool需要pageid类型
+    //TransactionId x //调bufferpool需要pageid类型
     private class fileItr implements DbFileIterator{
         //调用page的Itr
         int pageNo;
