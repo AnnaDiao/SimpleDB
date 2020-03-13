@@ -22,13 +22,13 @@ public class Tuple implements Serializable {
      */
 
     private TupleDesc tupleDesc; //表头
-    private Field[] fields; //数据
-
+    //private Field[] fields; //数据
+    private List<Field> fields;//数据
     public Tuple(TupleDesc td) {
         // some code goes here
         this.tupleDesc=td;
-        fields=new Field[td.numFields()];
-    }//未完
+        fields=new ArrayList<>(td.numFields());
+    }
 
     /**
      * @return The TupleDesc representing the schema of this tuple.
@@ -72,7 +72,7 @@ public class Tuple implements Serializable {
         // some code goes here
         if(i<0||i>=tupleDesc.numFields())
             throw new IllegalArgumentException("Field索引非法");
-        fields[i]=f;
+        fields.set(i,f);
     }
 
     /**
@@ -85,10 +85,10 @@ public class Tuple implements Serializable {
         // some code goes here
         if(i<0||i>=tupleDesc.numFields())
             throw new IllegalArgumentException("Field索引非法");
-        if(fields[i]==null)
+        if(fields.get(i)==null)
             return null;
         else
-            return fields[i];
+            return fields.get(i);
     }
 
     /**
@@ -106,9 +106,9 @@ public class Tuple implements Serializable {
         StringBuffer tmpstr=new StringBuffer();
         for(int j=0;j<tupleDesc.numFields()-1;++j)
         {
-            tmpstr.append(fields[j].toString()+'\t');
+            tmpstr.append(fields.get(j).toString()+'\t');
         }
-        tmpstr.append(fields[tupleDesc.numFields()-1].toString()+'\n');
+        tmpstr.append(fields.get(tupleDesc.numFields()-1).toString()+'\n');
         return tmpstr.toString();
     }
 
@@ -126,7 +126,7 @@ public class Tuple implements Serializable {
         private int nump=0;
         public boolean hasNext()
         {
-            if(nump<fields.length)
+            if(nump<fields.size())
                 return true;
             else
                 return false;
@@ -135,7 +135,7 @@ public class Tuple implements Serializable {
             if (!hasNext()) {
                 throw new NoSuchElementException();//？
             }
-            return fields[nump++];
+            return fields.get(nump++);
         }
     }
     /**
@@ -144,9 +144,9 @@ public class Tuple implements Serializable {
     public void resetTupleDesc(TupleDesc td)
     {
         // some code goes here
-        this.tupleDesc=td;
-        //this.fields.clear();
-        //this.fields=new ArrayList<>(td.numFields());
-        fields=new Field[td.numFields()];
+        tupleDesc=td;
+        fields.clear();
+        fields=new ArrayList<>(td.numFields());
+        //fields=new Field[td.numFields()];
     }
 }

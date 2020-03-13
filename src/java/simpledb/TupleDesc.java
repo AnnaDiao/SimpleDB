@@ -96,7 +96,7 @@ public class TupleDesc implements Serializable {
         }
         numAr=typeAr.length;
         //rtTd =new TDItem[numAr];//换成List
-        rtTd=new ArrayList<>(numAr);
+        rtTd=new ArrayList<>();
         fnameToIndex=new HashMap<>();
         for(int j=0;j<numAr;j++)
         {
