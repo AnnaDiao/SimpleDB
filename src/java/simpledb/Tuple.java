@@ -107,9 +107,8 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        //下面这行是干嘛的
-        // throw new UnsupportedOperationException("Implement this");
-        StringBuffer tmpstr=new StringBuffer();
+
+        StringBuilder tmpstr=new StringBuilder();
         for(int j=0;j<tupleDesc.numFields()-1;++j)
         {
             tmpstr.append(fields[j].toString()+'\t');
