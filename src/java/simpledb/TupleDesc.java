@@ -13,7 +13,6 @@ public class TupleDesc implements Serializable {
      * A help class to facilitate organizing the information of each field
      * */
     /**主程序在下面，不是这个*/
-    //多抛异常
     public static class TDItem implements Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -45,7 +44,7 @@ public class TupleDesc implements Serializable {
      * */
     //typeAr是一共有多少个！！！ 列名是String[] fieldAr
 
-    private int numAr;//在下面"TupleDesc"给数字
+    private int numAr;   //在下面"TupleDesc"给数字
     private List<TDItem> rtTd;
     private HashMap<String,Integer> fnameToIndex;
 
@@ -175,13 +174,7 @@ public class TupleDesc implements Serializable {
         // some code goes here
         if(name==null)
             throw new NoSuchElementException();
-        /*
-        for (int i = 0; i < rtTd.size(); i++) {
-            String temp= rtTd.get(i).fieldName;
-            if (temp != null && temp.equals(name)) {
-                return i;
-            }
-        }*/
+
         if(fnameToIndex.containsKey(name))
             return fnameToIndex.get(name);
         throw new NoSuchElementException();
@@ -194,8 +187,10 @@ public class TupleDesc implements Serializable {
     public int getSize() {
         // some code goes here
         int totalSize = 0;
-        for (TDItem item : rtTd) {
-            totalSize += item.fieldType.getLen();
+
+        for(int i=0;i<rtTd.size();i++)
+        {
+            totalSize+=rtTd.get(i).fieldType.getLen();
         }
         return totalSize;
     }
@@ -222,6 +217,11 @@ public class TupleDesc implements Serializable {
         // some code goes here
         int len1=td1.numAr;
         int len2=td2.numAr;
+
+        /**
+        td1.rtTd.addAll(td2.rtTd);
+        td1.rtTd.toArray(rtItems);*/
+
         TDItem[] tdItems1 = new TDItem[len1];
         td1.rtTd.toArray(tdItems1);
         TDItem[] tdItems2 = new TDItem[len2];
@@ -229,6 +229,7 @@ public class TupleDesc implements Serializable {
         TDItem[] rtItems = new TDItem[len1 + len2];
         System.arraycopy(tdItems1, 0, rtItems, 0, len1);
         System.arraycopy(tdItems2, 0, rtItems, len1, len2);
+
         return new TupleDesc(rtItems);
 
     }
@@ -283,7 +284,7 @@ public class TupleDesc implements Serializable {
      */
     public String toString() {
         // some code goes here
-        StringBuffer result = new StringBuffer();
+        StringBuilder result = new StringBuilder();
         result.append("Fields: ");
         for (TDItem tdItem : rtTd) {
             result.append(tdItem.toString() + ", ");
