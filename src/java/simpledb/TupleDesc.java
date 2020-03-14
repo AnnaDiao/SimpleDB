@@ -286,8 +286,8 @@ public class TupleDesc implements Serializable {
         // some code goes here
         StringBuilder result = new StringBuilder();
         result.append("Fields: ");
-        for (TDItem tdItem : rtTd) {
-            result.append(tdItem.toString() + ", ");
+        for (int i=0;i<rtTd.size();i++) {
+            result.append(rtTd.get(i).toString() + ", ");
         }
         return result.toString();
     }
