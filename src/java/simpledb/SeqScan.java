@@ -105,12 +105,10 @@ public class SeqScan implements OpIterator {
         if(tableAlias==null)
         {
             foreStr="null";
-           // tmpStr.append("null.");
         }
         else
         {
-            //tmpStr.append(tableAlias);
-           // tmpStr.append(".");
+
             foreStr=tableAlias+".";
         }
         TupleDesc tmpTpdesc=Database.getCatalog().getTupleDesc(tableId);
@@ -142,7 +140,7 @@ public class SeqScan implements OpIterator {
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here
         if(dbfItr==null)
-            throw new NullPointerException("Wrong in Scan! Itr hasn't been open yet.");// 看看能改成什么报错比较好
+            throw new NullPointerException("Wrong in Scan! Itr hasn't been open yet.");
         return dbfItr.hasNext();
     }
 

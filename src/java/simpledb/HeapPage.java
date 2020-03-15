@@ -296,6 +296,7 @@ public class HeapPage implements Page {
     //大端存址！[11111111 00000011]
     public boolean isSlotUsed(int i) {
         // some code goes here
+
         int tarHdr=header[i/8];
         int fram=i%8;
         fram=(tarHdr>>fram)&1;
