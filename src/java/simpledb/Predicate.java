@@ -12,7 +12,7 @@ public class Predicate implements Serializable {
     /** Constants used for return codes in Field.compare */
     public enum Op implements Serializable {
         EQUALS, GREATER_THAN, LESS_THAN, LESS_THAN_OR_EQ, GREATER_THAN_OR_EQ, LIKE, NOT_EQUALS;
-
+        //string
         /**
          * Interface to access operations by integer value for command-line
          * convenience.
@@ -42,7 +42,7 @@ public class Predicate implements Serializable {
             throw new IllegalStateException("impossible to reach here");
         }
 
-    }
+    }//Serializable 怎么理解
     
     /**
      * Constructor.
@@ -52,10 +52,16 @@ public class Predicate implements Serializable {
      * @param op
      *            operation to use for comparison
      * @param operand
-     *            field value to compare passed in tuples to
+     *            field value to compare passed in tuples to    //被比较的值
      */
+    private int fieldNum;
+    private Op op;
+    private Field operAnd;
     public Predicate(int field, Op op, Field operand) {
         // some code goes here
+        fieldNum=field;
+        this.op=op;
+        operAnd=operand;
     }
 
     /**
@@ -64,7 +70,7 @@ public class Predicate implements Serializable {
     public int getField()
     {
         // some code goes here
-        return -1;
+        return fieldNum;
     }
 
     /**
@@ -73,7 +79,7 @@ public class Predicate implements Serializable {
     public Op getOp()
     {
         // some code goes here
-        return null;
+        return op;
     }
     
     /**
@@ -82,14 +88,14 @@ public class Predicate implements Serializable {
     public Field getOperand()
     {
         // some code goes here
-        return null;
+        return operAnd;
     }
     
     /**
      * Compares the field number of t specified in the constructor to the
      * operand field specified in the constructor using the operator specific in
      * the constructor. The comparison can be made through Field's compare
-     * method.
+     * method.      //见Field文档
      * 
      * @param t
      *            The tuple to compare against
@@ -97,7 +103,8 @@ public class Predicate implements Serializable {
      */
     public boolean filter(Tuple t) {
         // some code goes here
-        return false;
+
+        return t.getField(fieldNum).compare(op,operAnd);
     }
 
     /**
@@ -106,6 +113,6 @@ public class Predicate implements Serializable {
      */
     public String toString() {
         // some code goes here
-        return "";
+        return ("f ="+fieldNum+"op ="+op+"operand ="+operAnd);
     }
 }

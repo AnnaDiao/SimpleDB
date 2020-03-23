@@ -20,13 +20,20 @@ public class Join extends Operator {
      * @param child2
      *            Iterator for the right(inner) relation to join
      */
+    private JoinPredicate theP;
+    private OpIterator childOne,childTwo;
+    private Tuple remTup;
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
         // some code goes here
+        theP=p;
+        childOne=child1;
+        childTwo=child2;
+        remTup=null;
     }
 
     public JoinPredicate getJoinPredicate() {
         // some code goes here
-        return null;
+        return theP;
     }
 
     /**
@@ -36,8 +43,8 @@ public class Join extends Operator {
      * */
     public String getJoinField1Name() {
         // some code goes here
-        return null;
-    }
+        return childOne.getTupleDesc().getFieldName(theP.getField1());
+    }//WARNING: fieldNum存在theP里面！！！ 是fieldname不是属性那一串
 
     /**
      * @return
@@ -46,7 +53,7 @@ public class Join extends Operator {
      * */
     public String getJoinField2Name() {
         // some code goes here
-        return null;
+        return childTwo.getTupleDesc().getFieldName(theP.getField2());
     }
 
     /**
@@ -55,20 +62,29 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return TupleDesc.merge(childOne.getTupleDesc(),childTwo.getTupleDesc());
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+        super.open();
+        childOne.open();
+        childTwo.open();
+
     }
 
     public void close() {
         // some code goes here
+        super.close();
+        childOne.close();
+        childTwo.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        childOne.rewind();
+        childTwo.rewind();
     }
 
     /**
@@ -89,20 +105,55 @@ public class Join extends Operator {
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
+    // theP自带比较
+    //因为一个tuple1有可能匹配多个tuple2，记得存档
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+        while(remTup!=null || childOne.hasNext())
+        {
+            if(remTup==null)
+                remTup=childOne.next();
+            while(childTwo.hasNext())
+            {
+                Tuple tup2=childTwo.next();
+                if(theP.filter(remTup,tup2))
+                {
+                    TupleDesc tmpTd=TupleDesc.merge(remTup.getTupleDesc(),tup2.getTupleDesc());
+                    Tuple tmpTup=new Tuple(tmpTd);
+                    tmpTup.setRecordId(remTup.getRecordId());
+                    int st1=0;
+                    while(st1<remTup.getTupleDesc().numFields())
+                    {
+                        tmpTup.setField(st1,remTup.getField(st1));
+                        st1++;
+                    }
+                    int st2=0;
+                    while (st2<tup2.getTupleDesc().numFields())
+                    {
+                        tmpTup.setField((st1+st2),tup2.getField(st2));
+                        st2++;
+                    }
+                    // MAYBE
+                    return tmpTup;
+                }//看 Tuple.java
+            }
+            remTup=null;
+            childTwo.rewind();
+        }
         return null;
-    }
+    }   //TO DO: 更高效        //
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
-    }
+        return new OpIterator[]{childOne,childTwo};
+    }//????
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+        childOne=children[0];
+        childTwo=children[2];
     }
 
 }
