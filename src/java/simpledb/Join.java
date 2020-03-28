@@ -25,10 +25,10 @@ public class Join extends Operator {
     private Tuple remTup;
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
         // some code goes here
-        theP=p;
-        childOne=child1;
-        childTwo=child2;
-        remTup=null;
+        this.theP=p;
+        this.childOne=child1;
+        this.childTwo=child2;
+        this.remTup=null;
     }
 
     public JoinPredicate getJoinPredicate() {
@@ -106,7 +106,7 @@ public class Join extends Operator {
      * @see JoinPredicate#filter
      */
     // theP自带比较
-    //因为一个tuple1有可能匹配多个tuple2，记得存档
+    //因为一个tuple1有可能匹配多个tuple2，记得存档//keng!!!
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
         while(remTup!=null || childOne.hasNext())

@@ -48,9 +48,9 @@ public class Aggregate extends Operator {
 
     public Aggregate(OpIterator child, int afield, int gfield, Aggregator.Op aop) {//
         // some code goes here
-        theChild = child;
-        aField = afield;
-        gField = gfield;
+        this.theChild = child;
+        this.aField = afield;
+        this.gField = gfield;
         this.aop = aop;
 
         synType = (gField == -1 ? null : theChild.getTupleDesc().getFieldType(gField));

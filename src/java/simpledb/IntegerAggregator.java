@@ -67,8 +67,7 @@ public class IntegerAggregator implements Aggregator {
 
         //Op 在Aggregator里面
         switch (what){
-            case SC_AVG:
-                break;
+
             case AVG:
                 if(fld2ave.containsKey(tmpgbFld))
                 {
@@ -123,6 +122,8 @@ public class IntegerAggregator implements Aggregator {
                     fld2val.put(tmpgbFld,1);
                 }
                 break;
+            case SC_AVG:
+
             case SUM_COUNT:
                 List<Integer> tmpLin=new ArrayList<>();
                 if(fld2val.containsKey(tmpgbFld))
@@ -267,6 +268,7 @@ public class IntegerAggregator implements Aggregator {
                 }
                 if(what.equals(Op.SC_AVG))
                 {
+
                     return rtTp;
                 }
             }
