@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -165,6 +166,15 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        //还没插入进去就不能调用t的gettableId()
+        ArrayList<Page> tmpPage=Database.getCatalog().getDatabaseFile(tableId).insertTuple(tid,t);
+        //tmpPage.get(0).markDirty(true,tid);
+        for(Page p:tmpPage) {
+            p.markDirty(true,tid);
+            if (idToPages.size()>maxPages)
+                evictPage();               //lab1未实现
+            idToPages.put(p.getId(), p);
+        }
     }
 
     /**
@@ -184,6 +194,13 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        ArrayList<Page> tmpPage=Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId()).deleteTuple(tid,t);   //魔鬼
+        for(Page p:tmpPage) {
+            p.markDirty(true, tid);
+            if (idToPages.size() == maxPages)
+                evictPage();               //lab1未实现
+            idToPages.put(t.getRecordId().getPageId(), p);
+        }
     }
 
     /**

@@ -3,6 +3,7 @@ package simpledb;
 import jdk.internal.org.objectweb.asm.tree.TryCatchBlockNode;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.io.RandomAccessFile;
 /**
@@ -107,6 +108,24 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        int pgNo=page.getId().getPageNumber();
+        try{
+            if(pgNo>numPages())
+            {
+                throw new IllegalArgumentException();
+            }
+            RandomAccessFile tmpFile=new RandomAccessFile(oneFile,"rw");    //跟下面一致
+            tmpFile.seek(pgNo*(BufferPool.getPageSize()));
+            // 见paga.java
+            byte[] bytes=page.getPageData();
+            tmpFile.write(bytes);
+            tmpFile.close();
+
+        }
+        catch (IOException e){
+            e.printStackTrace();
+        }
+
     }
 
     /**
@@ -118,18 +137,55 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    //不要忘记从BufforPool来取!!!!
+    //用Databse.bufforpool
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
+        ArrayList<Page> rtPage=new ArrayList<>();
+        for(int i=0;i<numPages();i++)
+        {
+            HeapPageId pid=new HeapPageId(this.getId(),i);  //!!!!!
+            HeapPage tmpPage=(HeapPage) Database.getBufferPool().getPage(tid,pid,Permissions.READ_WRITE);   //不要用原型！会少函数！！！！
+            if(!(tmpPage.getNumEmptySlots()==0))
+            {
+                tmpPage.insertTuple(t);
+                rtPage.add(tmpPage);
+                return rtPage;
+            }
+        }
+        //重要！！！ 不够了还可以新开一个page！
+        //throw new DbException("can not insert new tuple");
         // not necessary for lab1
+        byte[] emptypage=HeapPage.createEmptyPageData();
+        //https://blog.csdn.net/merry3602/article/details/7045515/ 用字节流
+        try {
+            //打开一个写文件器，构造函数中的第二个参数true表示以追加形式写文件
+            FileOutputStream writer = new FileOutputStream(oneFile, true);
+            writer.write(emptypage);
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        HeapPageId tmpPid=new HeapPageId(getId(),numPages()-1); //序号从0！！！！！！
+        HeapPage tmpPage=(HeapPage)Database.getBufferPool().getPage(tid,tmpPid,Permissions.READ_WRITE);
+        tmpPage.insertTuple(t);
+        rtPage.add(tmpPage);
+        return rtPage;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
+        if(t.getRecordId().getPageId().getPageNumber()>numPages())
+            throw new DbException("Tuple not belong to this file");
+
+        ArrayList<Page> rtPage=new ArrayList<>();
+        HeapPage page=(HeapPage)Database.getBufferPool().getPage(tid,t.getRecordId().getPageId(),Permissions.READ_WRITE);
+        page.deleteTuple(t); //自己就可以抛异常
+        rtPage.add(page);
+        return rtPage;
         // not necessary for lab1
     }
 
