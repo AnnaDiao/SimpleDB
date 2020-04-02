@@ -113,11 +113,12 @@ public class SeqScan implements OpIterator {
         }
         TupleDesc tmpTpdesc=Database.getCatalog().getTupleDesc(tableId);
         int pos=tmpTpdesc.numFields();
-        List<Type> tmpType = new ArrayList<>();
-        List<String> tmpName=new ArrayList<>();
+        //List<Type> tmpType = new ArrayList<>();
+        Type[] tmpType=new Type[pos];
+        String[] tmpName=new String[pos];
         for(int i=0;i<pos;i++)
         {
-            tmpType.add(tmpTpdesc.getFieldType(i));     //append 类型
+            tmpType[i]=(tmpTpdesc.getFieldType(i));     //append 类型
 
             String dropName=tmpTpdesc.getFieldName(i);  //判断名字是否为空
             StringBuilder tmpStr = new StringBuilder();
@@ -131,11 +132,12 @@ public class SeqScan implements OpIterator {
                 tmpStr.append(dropName);
             }
 
-            tmpName.add(tmpStr.toString());
+            tmpName[i]=(tmpStr.toString());
         }
 
-        return new TupleDesc((Type[])tmpType.toArray(),(String[]) tmpName.toArray());
-    }//what。。。//就是把表名改了
+        TupleDesc rtTd=new TupleDesc(tmpType,tmpName);
+        return rtTd;
+    }//what。。。//就是把表名改了     //这是什么操作啊
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here

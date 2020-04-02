@@ -171,9 +171,11 @@ public class IntegerAggregator implements Aggregator {
         Map<Field,List<Integer>> Fld2ave;
         Map<Field,Integer> Fld2val;
         Iterator<Map.Entry<Field,List<Integer>>> ItrFld2ave;
-        Iterator<Map.Entry<Field,Integer>> ItrFld2val;
-        boolean uzPair;
-        TupleDesc ItrTd;
+        Iterator<Map.Entry<Field,Integer>> ItrFld2val;  //迭代器声名
+
+        boolean uzPair;     //判断使用哪个迭代器
+        TupleDesc ItrTd;    //返回的Tupledesc
+
         IntArgItr(Type gptype,HashMap<Field,Integer> fld2val,HashMap<Field,List<Integer>> fld2ave,Op what)
         {
             Fld2ave =fld2ave;
@@ -200,6 +202,7 @@ public class IntegerAggregator implements Aggregator {
                 uzPair=true;
             else
                 uzPair=false;
+
             ItrFld2ave=null;
             ItrFld2val=null;
         }
@@ -237,12 +240,14 @@ public class IntegerAggregator implements Aggregator {
                 t.setField(1, new IntField(val));       //。。。类型转换
             }
         }
-        private int sumList(List<Integer> l) {
+
+        private int sumList(List<Integer> list) {
             int sum = 0;
-            for (int i : l)
-                sum += i;
+            for (int i=0;i<list.size();i++)
+                sum += list.get(i);
             return sum;
         }
+
         @Override
         public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
             Tuple rtTp=new Tuple(ItrTd);
@@ -298,9 +303,11 @@ public class IntegerAggregator implements Aggregator {
 
         @Override
         public void close() {
+
             ItrFld2ave=null;
             ItrFld2val=null;
             ItrTd=null;
+
         }
     }
 

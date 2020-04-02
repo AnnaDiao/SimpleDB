@@ -2,9 +2,7 @@ package simpledb;
 
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,10 +40,17 @@ public class BufferPool {
      */
     private int maxPages;  //总页数
     private HashMap<PageId,Page> idToPages;
+
+    private int retriveTime;
+    private HashMap<PageId,Integer> idToTime;
+
     public BufferPool(int numPages) {
         // some code goes here
         this.maxPages=numPages;
         this.idToPages=new HashMap<>(this.maxPages);
+
+        this.retriveTime=0;
+        this.idToTime=new HashMap<>(this.maxPages);
     }
     
     public static int getPageSize() {
@@ -86,6 +91,8 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+        if(retriveTime>1000000)
+            resetCount();
         if(!idToPages.containsKey(pid))
         {
             //throw new NoSuchElementException();
@@ -96,12 +103,34 @@ public class BufferPool {
             if(idToPages.size()==maxPages)
                 evictPage();               //lab1未实现
             idToPages.put(pid,page);
+            idToTime.put(pid,retriveTime++);
             return page;
         }
 
-        else
+        else {
+            idToTime.put(pid,retriveTime++);
             return idToPages.get(pid);
-    }//tid--看下面！;  tid 和perm 暂时不需要
+        }
+    }
+    private void resetCount()
+    {
+        List<Map.Entry<PageId,Integer>> list=new ArrayList<Map.Entry<PageId,Integer>>(idToTime.entrySet());
+        list.sort(new Comparator<Map.Entry<PageId, Integer>>() {
+            @Override
+            public int compare(Map.Entry<PageId, Integer> o1, Map.Entry<PageId, Integer> o2) {
+                return o1.getValue().compareTo(o2.getValue());
+            }
+        });
+        int match=list.size();
+        for(int i=0;i<match;i++)
+        {
+            PageId tmpId=list.get(i).getKey();
+            idToTime.put(tmpId,i);
+        }
+        retriveTime=match;
+    }//重新写idToTime里面的Time计数
+
+    //tid--看下面！;  tid 和perm 暂时不需要
 
     /**
      * Releases the lock on a page.
@@ -206,12 +235,19 @@ public class BufferPool {
     /**
      * Flush all dirty pages to disk.
      * NB: Be careful using this routine -- it writes dirty data to disk so will
-     *     break simpledb if running in NO STEAL mode.
+     *     break simpledb if running in NO STEAL mode.//
      */
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        Map<PageId,Page> map=idToPages;
+        for(Map.Entry<PageId,Page> entry:map.entrySet())
+        {
+            if(!(entry.getValue().isDirty()==null))
+            {
+                flushPage(entry.getKey());
+            }
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -225,22 +261,31 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        idToPages.remove(pid);
+        idToTime.remove(pid);
     }
 
     /**
-     * Flushes a certain page to disk
+     * Flushes a certain page to disk   //猜测是把改完的页面写回硬盘（替换？
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page rtPg=idToPages.get(pid);
+
+        Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(rtPg);
+
+        TransactionId tid=rtPg.isDirty();
+        rtPg.markDirty(false,tid);
+
     }
 
     /** Write all pages of the specified transaction to disk.
      */
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for lab1|lab2  ？？？
     }
 
     /**
@@ -250,6 +295,25 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        List<Map.Entry<PageId,Integer>> list=new ArrayList<Map.Entry<PageId,Integer>>(idToTime.entrySet());
+        list.sort(new Comparator<Map.Entry<PageId, Integer>>() {
+            @Override
+            public int compare(Map.Entry<PageId, Integer> o1, Map.Entry<PageId, Integer> o2) {
+                return o1.getValue().compareTo(o2.getValue());
+            }
+        }); //从小到大排序，找到最远使用的页码
+
+        PageId tmpId=list.get(0).getKey();
+
+        try{
+            flushPage(tmpId);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        discardPage(tmpId);
+
     }
 
 }
