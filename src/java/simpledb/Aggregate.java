@@ -160,7 +160,7 @@ public class Aggregate extends Operator {
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
 
-        theChild.rewind();      //???这是为何
+        //theChild.rewind();      //???这是为何
         synItr.rewind();
     }
 
