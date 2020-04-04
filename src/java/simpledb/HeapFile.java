@@ -93,7 +93,7 @@ public class HeapFile implements DbFile {
 
             tmpFile.seek(pgNo*pageSize);
             tmpFile.read(bytes);
-            //只能调用继承，不太懂
+
             HeapPageId rtId= new HeapPageId(pid.getTableId(),pid.getPageNumber());
             HeapPage rtPage=new HeapPage(rtId,bytes);
 
