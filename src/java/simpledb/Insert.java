@@ -1,7 +1,5 @@
 package simpledb;
 
-import com.sun.deploy.security.SelectableSecurityManager;
-
 import java.io.IOException;
 
 /**

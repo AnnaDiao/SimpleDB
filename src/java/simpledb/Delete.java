@@ -71,6 +71,7 @@ public class Delete extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+
         if(this.called==1)
             return null;
         called=1;
