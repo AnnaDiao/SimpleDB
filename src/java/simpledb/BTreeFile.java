@@ -4,7 +4,12 @@ import java.io.*;
 import java.util.*;
 
 import simpledb.Predicate.Op;
-
+/**
+ * 文件里有：
+ * getId(),getTupleDesc(),readPage(),wirtePage(),
+ *
+ *
+ * */
 /**
  * BTreeFile is an implementation of a DbFile that stores a B+ tree.
  * Specifically, it stores a pointer to a root page,
@@ -33,6 +38,7 @@ public class BTreeFile implements DbFile {
 	 * @param key - the field which index is keyed on
 	 * @param td - the tuple descriptor of tuples in the file
 	 */
+
 	public BTreeFile(File f, int key, TupleDesc td) {
 		this.f = f;
 		this.tableid = f.getAbsoluteFile().hashCode();
@@ -55,6 +61,7 @@ public class BTreeFile implements DbFile {
 	 * file underlying the BTreeFile, i.e. f.getAbsoluteFile().hashCode().
 	 * 
 	 * @return an ID uniquely identifying this BTreeFile.
+	 * BTreeFile的独特ID
 	 */
 	public int getId() {
 		return tableid;
@@ -191,11 +198,157 @@ public class BTreeFile implements DbFile {
 	 * @return the left-most leaf page possibly containing the key field f
 	 * 
 	 */
+	private boolean debug=false;
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-        return null;
+		BTreeLeafPage rtPage=null;
+		if(debug)
+		//很奇怪 不清楚没准可以删掉下面两行
+		{
+			int pageSize=BTreeRootPtrPage.getPageSize();
+			BTreeRootPtrPage tmpPage=(BTreeRootPtrPage)Database.getBufferPool().getPage(tid,pid,perm);
+			BTreePageId tmpPid=tmpPage.getRootId();
+			if(tmpPid.pgcateg()==BTreePageId.LEAF)
+			{
+				//加hash
+				return (BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+			}
+			rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+		}
+		if(!debug)
+		{
+			if(pid.pgcateg()==BTreePageId.LEAF)
+				return (BTreeLeafPage)Database.getBufferPool().getPage(tid,pid,perm);
+			//BTreeLeafPage rtPage=null;
+			BTreeInternalPage tmpPage=(BTreeInternalPage)Database.getBufferPool().getPage(tid,pid,perm) ;
+			Iterator it=tmpPage.iterator();
+			Field tmpFld=null;
+			dirtypages.put(pid,tmpPage);
+			BTreeEntry tmpEntry=null;
+			while(it.hasNext())
+			{
+				tmpEntry=(BTreeEntry) it.next();
+				tmpFld=tmpEntry.getKey();
+				if(f==null)
+				{
+					BTreePageId tmpPid=tmpEntry.getLeftChild();
+					if(tmpPid.pgcateg()==BTreePageId.LEAF)
+					{
+						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+						dirtypages.put(tmpPid,rtPage);
+						return rtPage;
+					}
+					else
+					{
+						rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+						break;
+					}
+				}
+				if(f.compare(Op.LESS_THAN_OR_EQ,tmpFld))
+				{
+					BTreePageId tmpPid=tmpEntry.getLeftChild();
+					if(tmpPid.pgcateg()==BTreePageId.LEAF)
+					{
+						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+						dirtypages.put(tmpPid,rtPage);
+						return rtPage;
+					}
+					else
+					{
+						rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+						break;
+					}
+				}
+				else
+				{
+					continue;
+				}
+			}
+			if(rtPage==null)
+			{
+				BTreePageId tmpPid=tmpEntry.getRightChild();
+				if(tmpPid.pgcateg()==BTreePageId.LEAF)
+				{
+					rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+					dirtypages.put(tmpPid,rtPage);
+					return rtPage;
+				}
+				else
+				{
+					rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+
+				}
+			}
+		}
+        return rtPage;
+	}
+	private BTreeLeafPage BTreeFindLeafPageSub(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
+											Field f) throws TransactionAbortedException, DbException
+	{
+
+		BTreeLeafPage rtPage=null;
+		BTreeInternalPage tmpPage=(BTreeInternalPage)Database.getBufferPool().getPage(tid,pid,perm) ;
+		Iterator it=tmpPage.iterator();
+		Field tmpFld=null;
+		dirtypages.put(pid,tmpPage);
+		BTreeEntry tmpEntry=null;
+		while(it.hasNext())
+		{
+			tmpEntry=(BTreeEntry) it.next();
+			tmpFld=tmpEntry.getKey();
+			if(f==null)
+			{
+				BTreePageId tmpPid=tmpEntry.getLeftChild();
+				if(tmpPid.pgcateg()==BTreePageId.LEAF)
+				{
+					rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+					dirtypages.put(tmpPid,rtPage);
+					return rtPage;
+				}
+				else
+				{
+					rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+					break;
+				}
+			}
+			if(f.compare(Op.LESS_THAN_OR_EQ,tmpFld))
+			{
+				BTreePageId tmpPid=tmpEntry.getLeftChild();
+				if(tmpPid.pgcateg()==BTreePageId.LEAF)
+				{
+					rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+					dirtypages.put(tmpPid,rtPage);
+					return rtPage;
+				}
+				else
+				{
+					rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+					break;
+				}
+			}
+			else
+			{
+				continue;
+			}
+		}
+		if(rtPage==null)
+		{
+			BTreePageId tmpPid=tmpEntry.getRightChild();
+			if(tmpPid.pgcateg()==BTreePageId.LEAF)
+			{
+				rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
+				dirtypages.put(tmpPid,rtPage);
+				return rtPage;
+			}
+			else
+			{
+				rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+
+			}
+		}
+		return rtPage;
 	}
 	
 	/**
