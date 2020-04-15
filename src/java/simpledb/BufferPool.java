@@ -101,7 +101,7 @@ public class BufferPool {
             DbFile file=Database.getCatalog().getDatabaseFile(tableId);
             Page page=file.readPage(pid);
             if(idToPages.size()==maxPages)
-                evictPage();               //lab1未实现
+                evictPage();
             idToPages.put(pid,page);
             idToTime.put(pid,retriveTime++);
             return page;

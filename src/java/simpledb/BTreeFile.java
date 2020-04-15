@@ -198,29 +198,18 @@ public class BTreeFile implements DbFile {
 	 * @return the left-most leaf page possibly containing the key field f
 	 * 
 	 */
-	private boolean debug=false;
+	// 不确定 hash是不是对的
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-		BTreeLeafPage rtPage=null;
-		if(debug)
-		//很奇怪 不清楚没准可以删掉下面两行
-		{
-			int pageSize=BTreeRootPtrPage.getPageSize();
-			BTreeRootPtrPage tmpPage=(BTreeRootPtrPage)Database.getBufferPool().getPage(tid,pid,perm);
-			BTreePageId tmpPid=tmpPage.getRootId();
-			if(tmpPid.pgcateg()==BTreePageId.LEAF)
-			{
-				//加hash
-				return (BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
-			}
-			rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
-		}
-		if(!debug)
-		{
-			if(pid.pgcateg()==BTreePageId.LEAF)
-				return (BTreeLeafPage)Database.getBufferPool().getPage(tid,pid,perm);
+			BTreeLeafPage rtPage=null;
+
+			if(pid.pgcateg()==BTreePageId.LEAF) {
+				rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,pid,perm);
+				dirtypages.put(pid,rtPage);
+				return rtPage;
+				}
 			//BTreeLeafPage rtPage=null;
 			BTreeInternalPage tmpPage=(BTreeInternalPage)Database.getBufferPool().getPage(tid,pid,perm) ;
 			Iterator it=tmpPage.iterator();
@@ -234,6 +223,7 @@ public class BTreeFile implements DbFile {
 				if(f==null)
 				{
 					BTreePageId tmpPid=tmpEntry.getLeftChild();
+					/**
 					if(tmpPid.pgcateg()==BTreePageId.LEAF)
 					{
 						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
@@ -242,13 +232,16 @@ public class BTreeFile implements DbFile {
 					}
 					else
 					{
-						rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+						rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
 						break;
-					}
+					}*/
+					rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
+					break;
 				}
 				if(f.compare(Op.LESS_THAN_OR_EQ,tmpFld))
 				{
 					BTreePageId tmpPid=tmpEntry.getLeftChild();
+					/**
 					if(tmpPid.pgcateg()==BTreePageId.LEAF)
 					{
 						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
@@ -257,31 +250,28 @@ public class BTreeFile implements DbFile {
 					}
 					else
 					{
-						rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+						rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
 						break;
-					}
+					}*/
+					rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
+					break;
 				}
 				else
 				{
 					continue;
 				}
 			}
-			if(rtPage==null)
-			{
-				BTreePageId tmpPid=tmpEntry.getRightChild();
-				if(tmpPid.pgcateg()==BTreePageId.LEAF)
-				{
-					rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
-					dirtypages.put(tmpPid,rtPage);
+			if(rtPage==null) {
+				BTreePageId tmpPid = tmpEntry.getRightChild();
+				if (tmpPid.pgcateg() == BTreePageId.LEAF) {
+					rtPage = (BTreeLeafPage) Database.getBufferPool().getPage(tid, tmpPid, perm);
+					dirtypages.put(tmpPid, rtPage);
 					return rtPage;
-				}
-				else
-				{
-					rtPage=(BTreeLeafPage) BTreeFindLeafPageSub(tid,dirtypages,tmpPid,perm,f);
+				} else {
+					rtPage = (BTreeLeafPage) findLeafPage(tid, dirtypages, tmpPid, perm, f);
 
 				}
 			}
-		}
         return rtPage;
 	}
 	private BTreeLeafPage BTreeFindLeafPageSub(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
