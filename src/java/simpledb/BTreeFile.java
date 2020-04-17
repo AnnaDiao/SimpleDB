@@ -385,12 +385,124 @@ public class BTreeFile implements DbFile {
 		// some code goes here
         //
         // Split the leaf page by adding a new page on the right of the existing
-		// page and moving half of the tuples to the new page.  Copy the middle key up
+		// page and moving half of the tuples to the new page.
+		// Copy the middle key up
 		// into the parent page, and recursively split the parent as needed to accommodate
-		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
+		// the new entry.
+		// getParentWithEmtpySlots() will be useful here.  Don't forget to update
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
 		// tuple with the given key field should be inserted.
-        return null;
+		// LeafPage 的 Move Record 不知道干嘛的
+		/**
+		 *通过在现有页的右侧添加新页并将一半元组移动到新页来拆分叶页。	✓
+		 * 将中间键向上复制到父页中，✓
+		 * 并根据需要递归拆分父页以容纳新条目。 ✓
+		 * getParentWithEmtpySlots（）在这里很有用。	✓
+		 * 不要忘记更新所有受影响叶页的兄弟指针。	✓
+		 * 返回一页，其中应插入具有给定键字段的元组。 ✓
+		 * 改删除 ✓
+		 */
+		BTreeLeafPage workPage=(BTreeLeafPage) getEmptyPage(tid,dirtypages,BTreePageId.LEAF);
+
+		BTreePageId parId=page.getParentId();
+
+		BTreeInternalPage interPage=getParentWithEmptySlots(tid,dirtypages,parId,field);
+		parId=interPage.getId();
+
+		BTreeLeafPageIterator itSlow=(BTreeLeafPageIterator)page.iterator();
+
+		int step=page.getNumTuples();
+		System.out.println(step);
+		int pos=0;
+		while(pos++<(step/2))
+		{
+			itSlow.hasNext();
+			itSlow.next();
+		}	//一半
+		/**
+		Tuple tuz=itSlow.next();
+		Field tmpF= tuz.getField(keyField);	//到底是跟着tuple还是跟着page*/
+		Field tmpF=null;
+		Tuple markTp=null;
+		if(itSlow.hasNext())
+		{
+			//目前我的键值是右边第一个tuple
+			markTp=itSlow.next();
+			tmpF=markTp.getField(keyField);
+			page.deleteTuple(markTp);
+			workPage.insertTuple(markTp);
+
+		}
+		while(itSlow.hasNext())
+		{
+			Tuple t=itSlow.next();
+			page.deleteTuple(t);
+			workPage.insertTuple(t);
+
+		}
+
+		/**
+		if(markTp!=null) {
+			BTreeLeafPageReverseIterator itBack = (BTreeLeafPageReverseIterator) page.reverseIterator();
+
+			while (itBack.hasNext()) {
+				Tuple t = itBack.next();
+				page.deleteTuple(t);
+				if (t == markTp)
+					break;
+			}
+		}
+	*/
+
+		BTreePageId tmpId=(BTreePageId) workPage.getId();
+		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
+		page.markDirty(true,tid);workPage.markDirty(true,tid);
+		interPage.markDirty(true,tid);
+		dirtypages.put(page.getId(),page);dirtypages.put(workPage.getId(),workPage);
+		dirtypages.put(parId,interPage);
+
+		//挪sibling
+		workPage.setRightSiblingId(page.getRightSiblingId());
+		if(page.getRightSiblingId()!=null)
+		{
+			BTreeLeafPage tmPage=(BTreeLeafPage)getPage(tid,dirtypages,page.getRightSiblingId(),Permissions.READ_WRITE);
+			tmPage.setLeftSiblingId((BTreePageId) tmpId);
+		}
+		workPage.setLeftSiblingId(page.getId());
+		page.setRightSiblingId(workPage.getId());
+
+		//把新的页插入到 Internal page 上, 并且更新 Entry，用 Internal的reverse
+
+		//从右边找到第一个左键为page的
+		BTreeInternalPageIterator myItr=(BTreeInternalPageIterator)interPage.iterator();
+		BTreeEntry myEn=null;
+		while (myItr.hasNext())
+		{
+			myEn=myItr.next();
+			if(myEn.getLeftChild()==page.getId())
+			{
+				break;
+			}
+		}
+		/**
+		if(myEn==null)
+			throw new IOException("standard not valid");*/
+		BTreeInternalPage tInPage=(BTreeInternalPage)getPage(tid,dirtypages,parId,Permissions.READ_WRITE);
+
+		if(myEn!=null)
+		{
+			myEn.setLeftChild(workPage.getId());
+			tInPage.updateEntry(myEn);
+		}
+
+		BTreeEntry insEntry=new BTreeEntry(tmpF,page.getId(),workPage.getId());
+		tInPage.insertEntry(insEntry);
+
+		if(field.compare(Op.LESS_THAN_OR_EQ,tmpF))
+		{
+			return page;
+		}
+		return workPage;
 		
 	}
 	
@@ -422,13 +534,101 @@ public class BTreeFile implements DbFile {
 		// some code goes here
         //
         // Split the internal page by adding a new page on the right of the existing
-		// page and moving half of the entries to the new page.  Push the middle key up
-		// into the parent page, and recursively split the parent as needed to accommodate
-		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
-		// the parent pointers of all the children moving to the new page.  updateParentPointers()
-		// will be useful here.  Return the page into which an entry with the given key field
-		// should be inserted.
-		return null;
+		// page and moving half of the entries to the new page. ✓
+		// Push the middle key up into the parent page,  ✓
+		// and recursively split the parent as needed to accommodate
+		// the new entry.
+		// getParentWithEmtpySlots() will be useful here. ✓
+		// Don't forget to update
+		// the parent pointers of all the children moving to the new page. ✓
+		// updateParentPointers() will be useful here.
+		// Return the page into which an entry with the given key field
+		// should be inserted.	✓
+
+		BTreeInternalPage workPage=(BTreeInternalPage) getEmptyPage(tid,dirtypages,BTreePageId.INTERNAL);
+
+		BTreePageId parId=page.getParentId();
+
+		BTreeInternalPage interPage=getParentWithEmptySlots(tid,dirtypages,parId,field);
+		parId=interPage.getId();
+
+		int step=page.getNumEntries();
+		int pos=0;
+		BTreeInternalPageIterator itSlow=(BTreeInternalPageIterator)page.iterator();
+		while(pos++<step/2)
+		{
+			itSlow.hasNext();
+			itSlow.next();
+		}	//一半
+
+		BTreeEntry tmpEntry;
+		if(itSlow.hasNext())
+		{
+			tmpEntry=itSlow.next();		//要推上去的entry
+			page.deleteKeyAndRightChild(tmpEntry);
+		}
+		else
+			throw new IOException("half is not valid!");
+		//Field tmpF= tmpEntry.getKey();
+
+		BTreeEntry cirEntry=null;
+		while(itSlow.hasNext())
+		{
+			BTreeEntry t=itSlow.next();
+			page.deleteKeyAndRightChild(t);
+			workPage.insertEntry(t);
+
+			updateParentPointer(tid,dirtypages,workPage.getId(),t.getLeftChild());
+
+			cirEntry=t;
+		}//插入
+		updateParentPointer(tid,dirtypages,workPage.getId(),cirEntry.getRightChild());
+		//至此更新完毕
+/**
+		//tmpEntry
+		BTreeInternalPageReverseIterator itBack=(BTreeInternalPageReverseIterator)page.reverseIterator();
+		while(itBack.hasNext())
+		{
+
+			BTreeEntry backEntry=itBack.next();
+			page.deleteKeyAndRightChild(backEntry);
+			if(backEntry==tmpEntry)
+			{
+				break;
+			}
+		}*/
+
+		tmpEntry.setLeftChild(page.getId());
+		tmpEntry.setRightChild(workPage.getId());
+		interPage.insertEntry(tmpEntry);	//推上去
+
+		BTreePageId tmpId=(BTreePageId) workPage.getId();
+		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
+
+		BTreeInternalPageReverseIterator itFindE=(BTreeInternalPageReverseIterator)interPage.reverseIterator();
+		while(itFindE.hasNext())
+		{
+			if(itFindE.next()==tmpEntry)
+			{
+				break;
+			}
+		}
+		if(itFindE.hasNext())
+		{
+			BTreeEntry uzEntry=itFindE.next();
+			uzEntry.setLeftChild(tmpId);
+			interPage.updateEntry(uzEntry);
+		}
+
+		page.markDirty(true,tid);workPage.markDirty(true,tid);
+		interPage.markDirty(true,tid);
+		dirtypages.put(page.getId(),page);dirtypages.put(workPage.getId(),workPage);
+		dirtypages.put(parId,interPage);
+
+		if(field.compare(Op.LESS_THAN_OR_EQ,tmpEntry.getKey()))
+			return page;
+		else
+			return workPage;
 	}
 	
 	/**
@@ -450,9 +650,8 @@ public class BTreeFile implements DbFile {
 	 */
 	private BTreeInternalPage getParentWithEmptySlots(TransactionId tid, HashMap<PageId, Page> dirtypages, 
 			BTreePageId parentId, Field field) throws DbException, IOException, TransactionAbortedException {
-		
+		//不管怎么说，返回了一个可以插入entry的页
 		BTreeInternalPage parent = null;
-		
 		// create a parent node if necessary
 		// this will be the new root of the tree
 		if(parentId.pgcateg() == BTreePageId.ROOT_PTR) {
@@ -467,7 +666,7 @@ public class BTreeFile implements DbFile {
 			// update the previous root to now point to this new root.
 			BTreePage prevRootPage = (BTreePage)getPage(tid, dirtypages, prevRootId, Permissions.READ_WRITE);
 			prevRootPage.setParentId(parent.getId());
-		}
+		}	//等会抄过来
 		else { 
 			// lock the parent page
 			parent = (BTreeInternalPage) getPage(tid, dirtypages, parentId, 

@@ -16,9 +16,9 @@ public class BTreeLeafPage extends BTreePage {
 	private final Tuple tuples[];
 	private final int numSlots;
 	
-	private int leftSibling; // leaf node or 0
+	private int leftSibling; // leaf node or 0 leafnode就是pgNo
 	private int rightSibling; // leaf node or 0
-
+	//看不懂
 	public void checkRep(int fieldid, Field lowerBound, Field upperBound, boolean checkoccupancy, int depth) {
 		Field prev = lowerBound;
 		assert(this.getId().pgcateg() == BTreePageId.LEAF);
