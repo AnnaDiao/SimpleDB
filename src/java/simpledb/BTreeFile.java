@@ -409,13 +409,15 @@ public class BTreeFile implements DbFile {
 		BTreeInternalPage interPage=getParentWithEmptySlots(tid,dirtypages,parId,field);
 		parId=interPage.getId();
 
-		BTreeLeafPageIterator itSlow=(BTreeLeafPageIterator)page.iterator();
+		BTreeLeafPageReverseIterator itSlow=(BTreeLeafPageReverseIterator)page.reverseIterator();
 		int step=page.getNumTuples();
 		int pos=0;
-		while(pos++<(step/2))
+		while(pos++<(step/2)-1)
 		{
 			itSlow.hasNext();
-			itSlow.next();
+			Tuple t=itSlow.next();
+			page.deleteTuple(t);
+			workPage.insertTuple(t);
 		}	//一半
 		/**
 		//到底是跟着tuple还是跟着page*/
@@ -424,18 +426,12 @@ public class BTreeFile implements DbFile {
 		Tuple markTp=null;
 		if(itSlow.hasNext())
 		{
-			//目前我的键值是右边第一个tuple
+			//是右边第一个tuple
 			markTp=itSlow.next();
-			tmpF=markTp.getField(this.keyField);
+			tmpF=markTp.getField(keyField());
 			page.deleteTuple(markTp);
 			workPage.insertTuple(markTp);
 
-		}
-		while(itSlow.hasNext())
-		{
-			Tuple t=itSlow.next();
-			page.deleteTuple(t);
-			workPage.insertTuple(t);
 		}
 
 /**
@@ -449,7 +445,6 @@ public class BTreeFile implements DbFile {
 			}
 		}
 */
-
 		BTreePageId tmpId=(BTreePageId) workPage.getId();
 		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
 		page.markDirty(true,tid);workPage.markDirty(true,tid);
@@ -487,7 +482,7 @@ public class BTreeFile implements DbFile {
 		}*/
 
 		BTreeEntry insEntry=new BTreeEntry(tmpF,page.getId(),workPage.getId());
-		interPage.insertEntry(insEntry);
+/**
 
 		BTreeInternalPageReverseIterator myItr=(BTreeInternalPageReverseIterator)interPage.reverseIterator();
 		BTreeEntry myEn=null;
@@ -503,7 +498,8 @@ public class BTreeFile implements DbFile {
 		{
 			myEn.setLeftChild(workPage.getId());
 			interPage.updateEntry(myEn);
-		}
+		}*/
+		interPage.insertEntry(insEntry);
 
 		if(field.compare(Op.LESS_THAN_OR_EQ,tmpF))
 		{
@@ -605,14 +601,21 @@ public class BTreeFile implements DbFile {
 			workPage.insertEntry(t);
 			updateParentPointer(tid,dirtypages,workPage.getId(),t.getRightChild());
 		}
-		updateParentPointer(tid,dirtypages,workPage.getId(),t.getLeftChild());
+
+		BTreeEntry rtEntry=null;
+		Field ff=null;
 		if(itrBack.hasNext())
 		{
+
 			tmpEntry=itrBack.next();		//要推上去的entry
+			ff=tmpEntry.getKey();
 			page.deleteKeyAndRightChild(tmpEntry);
+			updateParentPointer(tid,dirtypages,workPage.getId(),tmpEntry.getRightChild());
 		}
 		else
 			throw new IOException("half is not valid!");
+		rtEntry=new BTreeEntry(ff,page.getId(),workPage.getId());
+
 
 /**
 		//tmpEntry
@@ -628,17 +631,17 @@ public class BTreeFile implements DbFile {
 			}
 		}*/
 
-		tmpEntry.setLeftChild(page.getId());
-		tmpEntry.setRightChild(workPage.getId());
-		interPage.insertEntry(tmpEntry);	//推上去
+		//rtEntry.setLeftChild(page.getId());
+		//rtEntry.setRightChild(workPage.getId());
+		interPage.insertEntry(rtEntry);	//推上去
 
 		BTreePageId tmpId=(BTreePageId) workPage.getId();
 		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
-
+/**
 		BTreeInternalPageIterator itFindE=(BTreeInternalPageIterator)interPage.iterator();
 		while(itFindE.hasNext())
 		{
-			if(itFindE.next()==tmpEntry)
+			if(itFindE.next()==rtEntry)
 			{
 				break;
 			}
@@ -648,7 +651,7 @@ public class BTreeFile implements DbFile {
 			BTreeEntry uzEntry=itFindE.next();
 			uzEntry.setLeftChild(tmpId);
 			interPage.updateEntry(uzEntry);
-		}
+		}*/
 
 		page.markDirty(true,tid);workPage.markDirty(true,tid);
 		interPage.markDirty(true,tid);
