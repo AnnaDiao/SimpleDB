@@ -1083,8 +1083,10 @@ public class BTreeFile implements DbFile {
 		BTreePageId lastUsed=page.getChildId(0);
 
 		int totalPg=page.getNumEntries()+leftSibling.getNumEntries();
+
 		int st=page.getNumEntries();
 		BTreeInternalPageReverseIterator itrBack=(BTreeInternalPageReverseIterator)leftSibling.reverseIterator();
+
 		while (st++<(totalPg/2)&&itrBack.hasNext())
 		{
 			BTreeEntry tmpEn=itrBack.next();
@@ -1104,13 +1106,7 @@ public class BTreeFile implements DbFile {
 			lastUsed=tmpEn.getLeftChild();
 
 		}
-		/**
-		BTreeInternalPageIterator tmpItr=(BTreeInternalPageIterator)page.iterator();
-		if(tmpItr.hasNext())
-		{
-			parentEntry.setKey(tmpItr.next().getKey());
-			parent.updateEntry(parentEntry);
-		}*/
+
 		dirtypages.put(parent.getId(),parent);dirtypages.put(page.getId(),page);dirtypages.put(leftSibling.getId(),leftSibling);
 		parent.markDirty(true,tid);page.markDirty(true,tid);leftSibling.markDirty(true,tid);
 
@@ -1165,7 +1161,7 @@ public class BTreeFile implements DbFile {
 			tmpEn.setKey(tmpF);
 			page.insertEntry(tmpEn);
 
-			updateParentPointer(tid,dirtypages,page.getId(),tmpEn.getLeftChild());
+			updateParentPointer(tid,dirtypages,page.getId(),tmpEn.getRightChild());
 			lastUsed=tmpEn.getRightChild();
 
 		}
@@ -1205,10 +1201,38 @@ public class BTreeFile implements DbFile {
 
 		// some code goes here
         //
-		// Move all the tuples from the right page to the left page, update
-		// the sibling pointers, and make the right page available for reuse.
-		// Delete the entry in the parent corresponding to the two pages that are merging -
+		// Move all the tuples from the right page to the left page, ✓
+		// update the sibling pointers, and make the right page available for reuse. ✓
+		// Delete the entry in the parent corresponding to the two pages that are merging - ✓
 		// deleteParentEntry() will be useful here
+
+		BTreeLeafPageIterator rtItr=(BTreeLeafPageIterator)rightPage.iterator();
+		while(rtItr.hasNext())
+		{
+			Tuple t=rtItr.next();
+			rightPage.deleteTuple(t);
+			leftPage.insertTuple(t);
+		}
+		leftPage.setRightSiblingId(rightPage.getRightSiblingId());
+		if(rightPage.getRightSiblingId()!=null)
+		{
+			BTreeLeafPage tmpPg=(BTreeLeafPage)getPage(tid,dirtypages,rightPage.getRightSiblingId(),Permissions.READ_WRITE);
+			tmpPg.setLeftSiblingId(leftPage.getId());
+			dirtypages.put(tmpPg.getId(),tmpPg);
+			tmpPg.markDirty(true,tid);
+		}
+
+		setEmptyPage(tid,dirtypages,rightPage.getId().getPageNumber());
+
+		deleteParentEntry(tid,dirtypages,leftPage,parent,parentEntry);
+		//parent.deleteKeyAndRightChild(parentEntry);
+
+		dirtypages.put(leftPage.getId(),leftPage);dirtypages.put(rightPage.getId(),rightPage);
+		dirtypages.put(parent.getId(),parent);
+		leftPage.markDirty(true,tid);rightPage.markDirty(true,tid);
+		parent.markDirty(true,tid);
+
+
 	}
 
 	/**
@@ -1242,6 +1266,42 @@ public class BTreeFile implements DbFile {
 		// and make the right page available for reuse
 		// Delete the entry in the parent corresponding to the two pages that are merging -
 		// deleteParentEntry() will be useful here
+		BTreeInternalPageReverseIterator itrBack=(BTreeInternalPageReverseIterator)leftPage.reverseIterator();
+		BTreeInternalPageIterator itrR=(BTreeInternalPageIterator)rightPage.iterator();
+		BTreeEntry tmpEntry=parentEntry;
+		deleteParentEntry(tid,dirtypages,leftPage,parent,parentEntry);
+		if(itrBack.hasNext())
+		{
+			tmpEntry.setLeftChild(itrBack.next().getRightChild());
+		}
+		BTreeEntry tEn=null;
+		if(itrR.hasNext())
+		{
+			tEn=itrR.next();
+			tmpEntry.setRightChild(tEn.getLeftChild());
+		}
+		leftPage.insertEntry(tmpEntry);
+		//updateParentPointer(tid,dirtypages,leftPage.getId(),tEn.getRightChild());
+
+		if(tEn!=null)
+		{
+			rightPage.deleteKeyAndLeftChild(tEn);
+			updateParentPointer(tid,dirtypages,leftPage.getId(),tEn.getLeftChild());
+			leftPage.insertEntry(tEn);
+		}
+		while (itrR.hasNext())
+		{
+			tEn=itrR.next();
+			rightPage.deleteKeyAndLeftChild(tEn);
+			updateParentPointer(tid,dirtypages,leftPage.getId(),tEn.getLeftChild());
+			leftPage.insertEntry(tEn);
+		}
+		if(tEn != null)
+			updateParentPointer(tid,dirtypages,leftPage.getId(),tEn.getRightChild());
+		//还剩一个最右边的child怎么delete掉 --或许不需要
+
+		setEmptyPage(tid,dirtypages,rightPage.getId().getPageNumber());
+
 	}
 	
 	/**

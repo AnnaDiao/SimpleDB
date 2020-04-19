@@ -228,7 +228,7 @@ public class BufferPool {
             p.markDirty(true, tid);
             if (idToPages.size() == maxPages)
                 evictPage();               //lab1未实现
-            idToPages.put(t.getRecordId().getPageId(), p);
+            idToPages.put(p.getId(), p);
         }
     }
 
