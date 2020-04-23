@@ -88,7 +88,7 @@ public class BTreeReverseScanTest {
         int keyField = r.nextInt(2);
         BTreeFile f = BTreeUtility.createRandomBTreeFile(2, 1000, null, tuples, keyField);
         Collections.sort(tuples, new BTreeReverseScanTest.TupleComparator(keyField));
-
+        Collections.reverse(tuples);
         TransactionId tid = new TransactionId();
         BTreeReverseScan scan = new BTreeReverseScan(tid, f.getId(), "table", null);
         scan.open();
@@ -115,7 +115,7 @@ public class BTreeReverseScanTest {
         int keyField = r.nextInt(3);
         BTreeFile f = BTreeUtility.createRandomBTreeFile(3, 1000, null, tuples, keyField);
         Collections.sort(tuples, new BTreeReverseScanTest.TupleComparator(keyField));
-
+        Collections.reverse(tuples);
         // EQUALS
         TransactionId tid = new TransactionId();
         ArrayList<ArrayList<Integer>> tuplesFiltered = new ArrayList<ArrayList<Integer>>();
@@ -209,6 +209,9 @@ public class BTreeReverseScanTest {
         int keyField = 0;
         BTreeFile f = BTreeUtility.createBTreeFile(2, LEAF_PAGES*502, null, tuples, keyField);
         Collections.sort(tuples, new BTreeReverseScanTest.TupleComparator(keyField));
+
+        Collections.reverse(tuples);
+
         TupleDesc td = Utility.getTupleDesc(2);
         BTreeReverseScanTest.InstrumentedBTreeFile table = new BTreeReverseScanTest.InstrumentedBTreeFile(f.getFile(), keyField, td);
         Database.getCatalog().addTable(table, SystemTestUtil.getUUID());

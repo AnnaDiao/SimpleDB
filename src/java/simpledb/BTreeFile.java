@@ -252,7 +252,7 @@ public class BTreeFile implements DbFile {
 								   Field f) throws TransactionAbortedException, DbException {
 		return findLastLeafPage(tid,new HashMap<PageId,Page>(),pid,perm,f);
 	}
-	// 不确定 hash是不是对的
+	// 不确定 hash是不是对的--是对的0423
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
 			Field f) 
 					throws DbException, TransactionAbortedException {
@@ -277,36 +277,14 @@ public class BTreeFile implements DbFile {
 				if(f==null)
 				{
 					BTreePageId tmpPid=tmpEntry.getLeftChild();
-					/**
-					if(tmpPid.pgcateg()==BTreePageId.LEAF)
-					{
-						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
-						dirtypages.put(tmpPid,rtPage);
-						return rtPage;
-					}
-					else
-					{
-						rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
-						break;
-					}*/
+
 					rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
 					break;
 				}
 				if(f.compare(Op.LESS_THAN_OR_EQ,tmpFld))
 				{
 					BTreePageId tmpPid=tmpEntry.getLeftChild();
-					/**
-					if(tmpPid.pgcateg()==BTreePageId.LEAF)
-					{
-						rtPage=(BTreeLeafPage)Database.getBufferPool().getPage(tid,tmpPid,perm);
-						dirtypages.put(tmpPid,rtPage);
-						return rtPage;
-					}
-					else
-					{
-						rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
-						break;
-					}*/
+
 					rtPage=(BTreeLeafPage) findLeafPage(tid,dirtypages,tmpPid,perm,f);
 					break;
 				}
@@ -474,7 +452,7 @@ public class BTreeFile implements DbFile {
 			workPage.insertTuple(t);
 		}	//一半
 		/**
-		//到底是跟着tuple还是跟着page*/
+		//到底是跟着tuple还是跟着page--跟tuple*/
 		Field tmpF=null;
 
 		Tuple markTp=null;
@@ -488,17 +466,6 @@ public class BTreeFile implements DbFile {
 
 		}
 
-/**
-		if(markTp!=null) {
-			BTreeLeafPageReverseIterator itBack = (BTreeLeafPageReverseIterator) page.reverseIterator();
-			while (itBack.hasNext()) {
-				Tuple t = itBack.next();
-				page.deleteTuple(t);
-				if (t == markTp)
-					break;
-			}
-		}
-*/
 		BTreePageId tmpId=(BTreePageId) workPage.getId();
 		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
 		page.markDirty(true,tid);workPage.markDirty(true,tid);
@@ -516,43 +483,10 @@ public class BTreeFile implements DbFile {
 		workPage.setLeftSiblingId(page.getId());
 		page.setRightSiblingId(workPage.getId());
 
-		//把新的页插入到 Internal page 上, 并且更新 Entry，用 Internal的reverse
-		//找到第一个左键为page的
-		/**
-		BTreeInternalPageIterator myItr=(BTreeInternalPageIterator)interPage.iterator();
-		BTreeEntry myEn=null;
-		while (myItr.hasNext())
-		{
-			myEn=myItr.next();
-			if(myEn.getLeftChild()==page.getId())
-			{
-				break;
-			}
-		}
-		if(myEn!=null)
-		{
-			myEn.setLeftChild(workPage.getId());
-			interPage.updateEntry(myEn);
-		}*/
+
 
 		BTreeEntry insEntry=new BTreeEntry(tmpF,page.getId(),workPage.getId());
-/**
 
-		BTreeInternalPageReverseIterator myItr=(BTreeInternalPageReverseIterator)interPage.reverseIterator();
-		BTreeEntry myEn=null;
-		while (myItr.hasNext())
-		{
-			myEn=myItr.next();
-			if(myEn.getLeftChild()==page.getId())
-			{
-				break;
-			}
-		}
-		if(myEn!=null)
-		{
-			myEn.setLeftChild(workPage.getId());
-			interPage.updateEntry(myEn);
-		}*/
 		interPage.insertEntry(insEntry);
 
 		if(field.compare(Op.LESS_THAN_OR_EQ,tmpF))
@@ -612,40 +546,7 @@ public class BTreeFile implements DbFile {
 		int step=page.getNumEntries();
 		int pos=0;
 		BTreeEntry tmpEntry=null;
-/*
-		BTreeInternalPageIterator itSlow=(BTreeInternalPageIterator)page.iterator();
-		while(pos++<step/2)
-		{
-			itSlow.hasNext();
-			itSlow.next();
-		}	//一半
 
-
-		PageId recId=null;
-		if(itSlow.hasNext())
-		{
-			tmpEntry=itSlow.next();		//要推上去的entry
-			recId=tmpEntry.getLeftChild();
-			page.deleteKeyAndRightChild(tmpEntry);
-		}
-		else
-			throw new IOException("half is not valid!");
-		//Field tmpF= tmpEntry.getKey();
-
-		BTreeEntry cirEntry=null;
-		while(itSlow.hasNext())
-		{
-			BTreeEntry t=itSlow.next();
-			page.deleteKeyAndRightChild(t);
-			workPage.insertEntry(t);
-
-			updateParentPointer(tid,dirtypages,workPage.getId(),t.getLeftChild());
-
-			cirEntry=t;
-		}//插入
-		updateParentPointer(tid,dirtypages,workPage.getId(),cirEntry.getRightChild());
-		//至此更新完毕
-		*/
 		BTreeInternalPageReverseIterator itrBack=(BTreeInternalPageReverseIterator)page.reverseIterator();
 		BTreeEntry t=null;
 		while(pos++<step/2&&itrBack.hasNext())
@@ -671,41 +572,12 @@ public class BTreeFile implements DbFile {
 		rtEntry=new BTreeEntry(ff,page.getId(),workPage.getId());
 
 
-/**
-		//tmpEntry
-		BTreeInternalPageReverseIterator itBack=(BTreeInternalPageReverseIterator)page.reverseIterator();
-		while(itBack.hasNext())
-		{
 
-			BTreeEntry backEntry=itBack.next();
-			page.deleteKeyAndRightChild(backEntry);
-			if(backEntry==tmpEntry)
-			{
-				break;
-			}
-		}*/
-
-		//rtEntry.setLeftChild(page.getId());
-		//rtEntry.setRightChild(workPage.getId());
 		interPage.insertEntry(rtEntry);	//推上去
 
 		BTreePageId tmpId=(BTreePageId) workPage.getId();
 		workPage.setParentId(parId);	//不知道其他人需不需要改 --不需要 看updateParentPointor
-/**
-		BTreeInternalPageIterator itFindE=(BTreeInternalPageIterator)interPage.iterator();
-		while(itFindE.hasNext())
-		{
-			if(itFindE.next()==rtEntry)
-			{
-				break;
-			}
-		}
-		if(itFindE.hasNext())
-		{
-			BTreeEntry uzEntry=itFindE.next();
-			uzEntry.setLeftChild(tmpId);
-			interPage.updateEntry(uzEntry);
-		}*/
+
 
 		page.markDirty(true,tid);workPage.markDirty(true,tid);
 		interPage.markDirty(true,tid);
@@ -753,7 +625,7 @@ public class BTreeFile implements DbFile {
 			// update the previous root to now point to this new root.
 			BTreePage prevRootPage = (BTreePage)getPage(tid, dirtypages, prevRootId, Permissions.READ_WRITE);
 			prevRootPage.setParentId(parent.getId());
-		}	//等会抄过来
+		}
 		else { 
 			// lock the parent page
 			parent = (BTreeInternalPage) getPage(tid, dirtypages, parentId, 
