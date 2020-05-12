@@ -44,6 +44,136 @@ public class BufferPool {
     private int retriveTime;
     private HashMap<PageId,Integer> idToTime;
 
+    private class LockStru{
+        int lotype;
+        TransactionId tid;
+        public LockStru(int type,TransactionId tid)
+        {
+            this.lotype=type;
+            this.tid=tid;
+        }// 0 for share 1 for exclusive
+        public void changeType(int type)
+        {
+            this.lotype=type;
+        }
+
+    }
+
+    /*
+     * If a transaction requests a lock that it should not be granted,
+     * your code should block,
+     * waiting for that lock to become available
+     * (i.e., be released by another transaction running in a diﬀerent thread).
+     *
+     * */
+    private class MaintainSate{
+        ConcurrentHashMap<PageId,List<simpledb.BufferPool.LockStru>> stateRec;
+        public MaintainSate()
+        {
+            stateRec=new ConcurrentHashMap<PageId,List<simpledb.BufferPool.LockStru>>();
+        }
+        public synchronized boolean requestLock(PageId pid,TransactionId tid,int type)
+        {
+            //空的当然可以
+            if(this.stateRec.get(pid)==null)
+            {
+                simpledb.BufferPool.LockStru tmpLk=new simpledb.BufferPool.LockStru(type,tid);
+                List<simpledb.BufferPool.LockStru> tmpLst=new ArrayList<>();
+                tmpLst.add(tmpLk);
+                stateRec.put(pid,tmpLst);
+                return true;
+            }
+
+            List<simpledb.BufferPool.LockStru> tmpLst=stateRec.get(pid);
+
+            for(int j=0;j<tmpLst.size();j++)
+            {
+                simpledb.BufferPool.LockStru tmpLk=tmpLst.get(j);
+                if(tid==tmpLk.tid)
+                {
+                    if(type==0)
+                        return true;
+                    if(type==1)
+                    {
+                        if(type==tmpLk.lotype)
+                            return true;
+                        if(tmpLst.size()==1)
+                        {
+                            tmpLk.changeType(1);
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+            }
+
+            if(tmpLst.get(0).lotype==1)
+            {
+                return false;
+            }
+            if(type==0)
+            {
+                simpledb.BufferPool.LockStru tmpLk=new simpledb.BufferPool.LockStru(type,tid);
+                List<simpledb.BufferPool.LockStru> tmp=new ArrayList<>();
+                tmp.add(tmpLk);
+                stateRec.put(pid,tmp);
+                return true;
+            }
+            /*if(type==1)
+            {
+                return false;
+            }
+            */
+            return false;
+
+        }
+
+        public synchronized boolean releaseLock(PageId pid,TransactionId tid)
+        {
+            if(stateRec.get(pid)==null)
+            {
+                throw new NoSuchElementException("invalid Locked Page!");
+            }
+            List<simpledb.BufferPool.LockStru> LockLst=stateRec.get(pid);
+            boolean find=false;
+            for(int j=0;j<LockLst.size();j++)
+            {
+                simpledb.BufferPool.LockStru tmpLk=LockLst.get(j);
+                if(tid==tmpLk.tid)
+                {
+                    find=true;
+                    LockLst.remove(tmpLk);
+                    if(LockLst.size() == 0)
+                        stateRec.remove(pid);
+                    return true;
+
+                }
+            }
+
+            return false;
+        }
+        /** Return true if the specified transaction has a lock on the specified page */
+        public synchronized boolean holdsBack(PageId pid,TransactionId tid)
+        {
+            if(stateRec.get(pid)==null)
+            {
+                return false;
+            }
+            List<simpledb.BufferPool.LockStru> LockLst=stateRec.get(pid);
+            for(int j=0;j<LockLst.size();j++)
+            {
+                if(tid==LockLst.get(j).tid)
+                    return true;
+            }
+            return false;
+        }
+    }
+
+
+
+    private simpledb.BufferPool.MaintainSate mtState;
+
+
     public BufferPool(int numPages) {
         // some code goes here
         this.maxPages=numPages;
@@ -51,6 +181,7 @@ public class BufferPool {
 
         this.retriveTime=0;
         this.idToTime=new HashMap<>(this.maxPages);
+        this.mtState=new simpledb.BufferPool.MaintainSate();
     }
     
     public static int getPageSize() {
@@ -91,6 +222,25 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+
+        int type=0;
+        if(perm==Permissions.READ_ONLY)
+            type=0;
+        else
+        {
+            type=1;
+        }
+        boolean flag=mtState.requestLock(pid,tid,type);
+        while (!flag)
+        {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            flag=mtState.requestLock(pid,tid,type);
+        }
+
         if(retriveTime>1000000)
             resetCount();
         if(!idToPages.containsKey(pid))
@@ -144,6 +294,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        mtState.releaseLock(pid,tid);
     }
 
     /**
@@ -154,13 +305,15 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        transactionComplete(tid,true);
+
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return mtState.holdsBack(p,tid);
     }
 
     /**
@@ -171,11 +324,24 @@ public class BufferPool {
      * @param commit a flag indicating whether we should commit or abort
      */
     public void transactionComplete(TransactionId tid, boolean commit)
-        throws IOException {
+            throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-    }
+        if(commit)
+        {
+            flushPages(tid);
+        }
+        else
+        {
+            //abortPages(tid);
+        }
 
+        for(PageId pid:idToPages.keySet())
+        {
+            if(holdsLock(tid,pid))
+                releasePage(tid,pid);
+        }
+    }
     /**
      * Add a tuple to the specified table on behalf of transaction tid.  Will
      * acquire a write lock on the page the tuple is added to and any other 
@@ -286,6 +452,17 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2  ？？？
+        for(PageId pid:idToPages.keySet())
+        {
+            Page p=idToPages.get(pid);
+            if (p.isDirty() != null && p.isDirty().equals(tid)) {
+                flushPage(pid);
+                if(p.isDirty()==null)
+                {
+                    p.setBeforeImage();
+                }
+            }
+        }
     }
 
     /**
