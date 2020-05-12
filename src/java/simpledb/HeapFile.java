@@ -143,33 +143,37 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        ArrayList<Page> rtPage=new ArrayList<>();
-        for(int i=0;i<numPages();i++)
-        {
-            HeapPageId pid=new HeapPageId(this.getId(),i);  //!!!!!
-            HeapPage tmpPage=(HeapPage) Database.getBufferPool().getPage(tid,pid,Permissions.READ_WRITE);   //不要用原型！会少函数！！！！
-            if(!(tmpPage.getNumEmptySlots()==0))
-            {
+        ArrayList<Page> rtPage = new ArrayList<>();
+        HeapPage tmpPage = null;
+        for (int i = 0; i < numPages(); i++) {
+            HeapPageId pid = new HeapPageId(this.getId(), i);  //!!!!!
+            tmpPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);   //不要用原型！会少函数！！！！
+            if (!(tmpPage.getNumEmptySlots() == 0)) {
                 tmpPage.insertTuple(t);
                 rtPage.add(tmpPage);
                 return rtPage;
+            } else {
+                Database.getBufferPool().releasePage(tid, pid);
             }
         }
         //重要！！！ 不够了还可以新开一个page！
         //throw new DbException("can not insert new tuple");
         // not necessary for lab1
-        byte[] emptypage=HeapPage.createEmptyPageData();
-        //https://blog.csdn.net/merry3602/article/details/7045515/ 用字节流
-        try {
-            //打开一个写文件器，构造函数中的第二个参数true表示以追加形式写文件
-            FileOutputStream writer = new FileOutputStream(oneFile, true);
-            writer.write(emptypage);
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (tmpPage == null || tmpPage.getNumEmptySlots() == 0) {
+            byte[] emptypage = HeapPage.createEmptyPageData();
+
+            //https://blog.csdn.net/merry3602/article/details/7045515/ 用字节流
+            try {
+                //打开一个写文件器，构造函数中的第二个参数true表示以追加形式写文件
+                FileOutputStream writer = new FileOutputStream(oneFile, true);
+                writer.write(emptypage);
+                writer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            HeapPageId tmpPid = new HeapPageId(getId(), numPages() - 1); //序号从0！！！！！！
+            tmpPage = (HeapPage) Database.getBufferPool().getPage(tid, tmpPid, Permissions.READ_WRITE);
         }
-        HeapPageId tmpPid=new HeapPageId(getId(),numPages()-1); //序号从0！！！！！！
-        HeapPage tmpPage=(HeapPage)Database.getBufferPool().getPage(tid,tmpPid,Permissions.READ_WRITE);
         tmpPage.insertTuple(t);
         rtPage.add(tmpPage);
         return rtPage;
