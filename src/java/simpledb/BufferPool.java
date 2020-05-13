@@ -4,6 +4,7 @@ import java.io.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -67,20 +68,27 @@ public class BufferPool {
      *
      * */
     private class MaintainSate{
-        ConcurrentHashMap<PageId,List<simpledb.BufferPool.LockStru>> stateRec;
+        ConcurrentHashMap<PageId,List<LockStru>> stateRec;
+        ConcurrentHashMap<TransactionId,PageId> waitList;
         public MaintainSate()
         {
-            stateRec=new ConcurrentHashMap<PageId,List<simpledb.BufferPool.LockStru>>();
+            stateRec= new ConcurrentHashMap<>();
+            waitList=new ConcurrentHashMap<>();
         }
         public synchronized boolean requestLock(PageId pid,TransactionId tid,int type)
         {
             //空的当然可以
             if(this.stateRec.get(pid)==null)
             {
-                simpledb.BufferPool.LockStru tmpLk=new simpledb.BufferPool.LockStru(type,tid);
-                List<simpledb.BufferPool.LockStru> tmpLst=new ArrayList<>();
+                LockStru tmpLk=new LockStru(type,tid);
+                List<LockStru> tmpLst=new ArrayList<>();
                 tmpLst.add(tmpLk);
                 stateRec.put(pid,tmpLst);
+                /************************/
+                if(waitList.get(tid)!=null)
+                {
+                    waitList.remove(tid);
+                }
                 return true;
             }
 
@@ -92,31 +100,60 @@ public class BufferPool {
                 if(tid==tmpLk.tid)
                 {
                     if(type==0)
+                    {
+                        /************************/
+                        if(waitList.get(tid)!=null)
+                        {
+                            waitList.remove(tid);
+                        }
                         return true;
+                    }
+
                     if(type==1)
                     {
                         if(type==tmpLk.lotype)
+                        {
+                            /************************/
+                            if(waitList.get(tid)!=null)
+                            {
+                                waitList.remove(tid);
+                            }
                             return true;
+                        }
                         if(tmpLst.size()==1)
                         {
+                            /************************/
+                            if(waitList.get(tid)!=null)
+                            {
+                                waitList.remove(tid);
+                            }
                             tmpLk.changeType(1);
                             return true;
                         }
-                        return false;
+                        /************************/
+                        waitList.put(tid,pid);
+                        return false;   //
                     }
                 }
             }
 
             if(tmpLst.get(0).lotype==1)
             {
+                /************************/
+                waitList.put(tid,pid);
                 return false;
             }
             if(type==0)
             {
-                simpledb.BufferPool.LockStru tmpLk=new simpledb.BufferPool.LockStru(type,tid);
-                List<simpledb.BufferPool.LockStru> tmp=new ArrayList<>();
+                LockStru tmpLk=new simpledb.BufferPool.LockStru(type,tid);
+                List<LockStru> tmp=new ArrayList<>();
                 tmp.add(tmpLk);
                 stateRec.put(pid,tmp);
+                /************************/
+                if(waitList.get(tid)!=null)
+                {
+                    waitList.remove(tid);
+                }
                 return true;
             }
             /*if(type==1)
@@ -124,33 +161,34 @@ public class BufferPool {
                 return false;
             }
             */
+            /************************/
+            waitList.put(tid,pid);
             return false;
 
         }
 
-        public synchronized boolean releaseLock(PageId pid,TransactionId tid)
+        public synchronized void releaseLock(PageId pid, TransactionId tid)
         {
             if(stateRec.get(pid)==null)
             {
                 throw new NoSuchElementException("invalid Locked Page!");
             }
             List<simpledb.BufferPool.LockStru> LockLst=stateRec.get(pid);
-            boolean find=false;
+            //boolean find=false;
             for(int j=0;j<LockLst.size();j++)
             {
                 simpledb.BufferPool.LockStru tmpLk=LockLst.get(j);
                 if(tid==tmpLk.tid)
                 {
-                    find=true;
+                    //find=true;
                     LockLst.remove(tmpLk);
                     if(LockLst.size() == 0)
                         stateRec.remove(pid);
-                    return true;
+                    return;
 
                 }
             }
 
-            return false;
         }
         /** Return true if the specified transaction has a lock on the specified page */
         public synchronized boolean holdsBack(PageId pid,TransactionId tid)
@@ -160,9 +198,118 @@ public class BufferPool {
                 return false;
             }
             List<simpledb.BufferPool.LockStru> LockLst=stateRec.get(pid);
-            for(int j=0;j<LockLst.size();j++)
+            for (LockStru lockStru : LockLst) {
+                if (tid == lockStru.tid)
+                    return true;
+            }
+            return false;
+        }
+
+        public synchronized boolean isDeadLock(PageId pid,TransactionId tid)
+        {
+            //找到现在占用的Pid的资源，看他是否需要tid现在占用的资源
+            List<LockStru> lcLst=stateRec.get(pid);
+            if(lcLst==null||lcLst.size()==0)
             {
-                if(tid==LockLst.get(j).tid)
+                return false;
+            }
+            List<PageId> tidRs=new ArrayList<>();      //tid占有的资源
+            List<TransactionId> holdPid=new ArrayList<>();  //现在占用pid的事务tid
+
+            List<PageId> allNeededPages=new ArrayList<>();
+
+            for(LockStru ls:stateRec.get(pid))
+            {
+                holdPid.add(ls.tid);
+            }
+            for(PageId tmpPid:stateRec.keySet())
+            {
+                List<LockStru> tmpLs=stateRec.get(tmpPid);
+                for(LockStru lock:tmpLs)
+                {
+                    if(lock.tid==tid)
+                    {
+                        tidRs.add(tmpPid);
+                    }
+                }
+            }
+
+            for(TransactionId t:holdPid)
+            {
+                if(waitList.get(t)!=null)
+                {
+                    if(haveCrush(tidRs,waitList.get(t)))
+                        return true;
+                    else
+                    {
+                        if(allNeededPages.indexOf(waitList.get(t))==-1)
+                        {
+                            allNeededPages.add(waitList.get(t));
+                        }
+                    }
+                }
+            }//直接死锁
+
+            /******间接死锁******/
+            int size=allNeededPages.size();
+            int pos=0;
+            //System.out.println("new round");
+            while (true)
+            {
+                while (pos<size)  //找到占用每一页的tid, 看他们是否在waitList里面等待别的页码
+                {
+                    System.out.println("new round");
+                    PageId Tpid=allNeededPages.get(pos);
+
+                    List<TransactionId> Ttid=new ArrayList<>();
+                    for(LockStru ls:stateRec.get(Tpid))
+                    {
+                        System.out.println("in R1");
+                        Ttid.add(ls.tid);
+                    }
+
+                    for(TransactionId t:Ttid)
+                    {
+                        System.out.println("in R2");
+                        if(waitList.get(t)!=null)
+                        {
+                            if(haveCrush(tidRs,waitList.get(t)))
+                                return true;
+                            else
+                            {
+                                System.out.println("in R3");
+                                if(allNeededPages.indexOf(waitList.get(t))==-1)
+                                {
+                                    System.out.println("in R4");
+                                    allNeededPages.add(waitList.get(t));
+                                }
+                            }
+                        }
+                    }
+                    pos++;
+                }
+                if(size==allNeededPages.size())
+                {
+                    break;
+                }
+                size=allNeededPages.size();
+                System.out.println(size);
+            }
+            /*
+            for(PageId t:allNeededPages)
+            {
+                    if(haveCrush(tidRs,t))
+                        return true;
+            }*///间接死锁
+
+            return false;
+        }
+
+        private synchronized boolean haveCrush(List<PageId> tidRs,PageId pid)
+        {
+            for(PageId p:tidRs)
+            {
+                if(p==pid)
                     return true;
             }
             return false;
@@ -171,7 +318,7 @@ public class BufferPool {
 
 
 
-    private simpledb.BufferPool.MaintainSate mtState;
+    private MaintainSate mtState;
 
 
     public BufferPool(int numPages) {
@@ -181,7 +328,7 @@ public class BufferPool {
 
         this.retriveTime=0;
         this.idToTime=new HashMap<>(this.maxPages);
-        this.mtState=new simpledb.BufferPool.MaintainSate();
+        this.mtState=new MaintainSate();
     }
 
     public static int getPageSize() {
@@ -230,9 +377,16 @@ public class BufferPool {
         {
             type=1;
         }
-        boolean flag=mtState.requestLock(pid,tid,type);
+        boolean flag=false;//mtState.requestLock(pid,tid,type);
+        long start = System.currentTimeMillis();
+        long timeout = new Random().nextInt(2000) + 1000;
         while (!flag)
         {
+            System.out.println("index");
+            /*
+            if(mtState.isDeadLock(pid,tid))
+                throw new TransactionAbortedException();*/
+            
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {

@@ -143,8 +143,10 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
+
         ArrayList<Page> rtPage = new ArrayList<>();
         HeapPage tmpPage = null;
+
         for (int i = 0; i < numPages(); i++) {
             HeapPageId pid = new HeapPageId(this.getId(), i);  //!!!!!
             tmpPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);   //不要用原型！会少函数！！！！
