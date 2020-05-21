@@ -1,10 +1,7 @@
 package simpledb;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,11 +39,11 @@ public class BufferPool {
         }
     }
     private static class PageLockRecorder {
-        ConcurrentHashMap<PageId, Vector<LockStru>> stateRecord;
+        ConcurrentHashMap<PageId, List<LockStru>> stateRecord;
         ConcurrentHashMap<TransactionId,PageId> waitList;
 
         public PageLockRecorder(){
-            stateRecord = new ConcurrentHashMap<>();
+            stateRecord = new ConcurrentHashMap<PageId, List<LockStru>>();
             waitList=new ConcurrentHashMap<>();
         }
 
@@ -63,7 +60,7 @@ public class BufferPool {
                 return true;
             }
 
-            Vector<LockStru> lockStrus = stateRecord.get(pid);
+            List<LockStru> lockStrus = stateRecord.get(pid);
             for(LockStru lockStru : lockStrus){
                 if(lockStru.tid == tid){
                     if(lockStru.locktype == lockType)
@@ -109,7 +106,7 @@ public class BufferPool {
         }
         public synchronized boolean releaseLock(PageId pid,TransactionId tid){
 
-            Vector<LockStru> lockStrus = stateRecord.get(pid);
+            List<LockStru> lockStrus = stateRecord.get(pid);
             if(lockStrus ==null)
             {
                 return true;
@@ -129,7 +126,7 @@ public class BufferPool {
         public synchronized boolean holdsLock(PageId pid,TransactionId tid){
             if(stateRecord.get(pid) == null)
                 return false;
-            Vector<LockStru> lockStrus = stateRecord.get(pid);
+            List<LockStru> lockStrus = stateRecord.get(pid);
             for(LockStru lockStru : lockStrus){
                 if(lockStru.tid == tid){
                     return true;
@@ -137,6 +134,40 @@ public class BufferPool {
             }
             return false;
         }
+
+        private synchronized boolean waitSrc(TransactionId curHolder, List<PageId> curSrc, TransactionId tid) {
+           PageId waitPg = waitList.get(curHolder);
+            if (waitPg == null) {
+               return false;
+
+            }
+           for (PageId tmpPid : curSrc) {
+                if (tmpPid == waitPg)
+                {
+                    return true;    //直接等待
+                }
+            }
+            //间接等待
+
+            List<LockStru> holders=stateRecord.get(waitPg);
+            if(holders==null||holders.size()==0)
+            {
+                return false;
+            }
+
+            for (LockStru pls : holders) {
+               TransactionId holder = pls.tid;
+               if (holder!=tid) {
+                   boolean isWaiting = waitSrc(holder, curSrc, tid);
+                        if (isWaiting)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            return false;
+        }
+
         public synchronized boolean isDeadLock(PageId pid,TransactionId tid)
         {
             //找到现在占用的Pid的资源，看他是否需要tid现在占用的资源
@@ -146,6 +177,29 @@ public class BufferPool {
                 return false;
             }
             List<PageId> tidRs=new ArrayList<>();      //tid占有的资源
+
+            for (Map.Entry<PageId, List<LockStru>> entry : stateRecord.entrySet()) {
+                for (LockStru ls : entry.getValue()) {
+                    if (ls.tid==tid) {
+                        tidRs.add(entry.getKey());
+                    }
+                }
+            }
+
+            /*******************************/
+            for(LockStru ls:lcLst)
+            {
+                TransactionId curHolder=ls.tid;
+                if(curHolder!=tid) {
+                    boolean isWaiting=waitSrc(curHolder,tidRs,tid);
+                    if(isWaiting)
+                        return true;
+                }
+            }
+
+        return false;
+
+  /*
             List<TransactionId> holdPid=new ArrayList<>();  //现在占用pid的事务tid
 
             List<PageId> allNeededPages=new ArrayList<>();
@@ -165,7 +219,7 @@ public class BufferPool {
                     }
                 }
             }
-
+/*
             for(TransactionId t:holdPid)
             {
                 if(waitList.get(t)!=null)
@@ -183,7 +237,7 @@ public class BufferPool {
             }//直接死锁
 
             /******间接死锁******/
-            int size=allNeededPages.size();
+       /*     int size=allNeededPages.size();
             int pos=0;
             //System.out.println("new round");
             while (true)
@@ -234,7 +288,7 @@ public class BufferPool {
                         return true;
             }*///间接死锁
 
-            return false;
+            //return false;
         }
 
         private synchronized boolean haveCrush(List<PageId> tidRs, PageId pid)
@@ -305,23 +359,24 @@ public class BufferPool {
 
         long start = System.currentTimeMillis();
         long timeout = new Random().nextInt(2000) + 1000;
-
         boolean flag= lockRecorder.requireLock(pid,tid,lockType);
         while (!flag)
         {
-            if(lockRecorder.isDeadLock(pid,tid))
-                throw new TransactionAbortedException();
             /*
+            if(lockRecorder.isDeadLock(pid,tid))
+                throw new TransactionAbortedException();*/
+
             long now = System.currentTimeMillis();
             if(now-start > timeout){
                 throw new TransactionAbortedException();
-            }*/
+            }
+/*
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
+*/
             flag= lockRecorder.requireLock(pid,tid,lockType);
         }
 
@@ -429,8 +484,14 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-        DbFile f = Database.getCatalog().getDatabaseFile(tableId);
-        updateBufferPool(f.insertTuple(tid,t),tid);
+        DbFile file = Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pgLst=file.insertTuple(tid,t);
+        for(Page p:pgLst){
+            p.markDirty(true,tid);// update bufferpool
+            if(idToPages.size() > maxPages)
+                evictPage();
+            idToPages.put(p.getId(),p);
+        }
     }
 
     /**
@@ -450,18 +511,17 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-        DbFile f = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
-        updateBufferPool(f.deleteTuple(tid,t),tid);
-    }
-    private void updateBufferPool(ArrayList<Page> pagelist,TransactionId tid) throws DbException{
-        for(Page p:pagelist){
+        DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        List<Page> pgLst=file.deleteTuple(tid,t);
+
+        for(Page p:pgLst){
             p.markDirty(true,tid);// update bufferpool
             if(idToPages.size() > maxPages)
                 evictPage();
             idToPages.put(p.getId(),p);
         }
-
     }
+
 
     /**
      * Flush all dirty pages to disk.
@@ -471,8 +531,8 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-        for (PageId i : idToPages.keySet()) {
-            flushPage(i);
+        for (PageId pid : idToPages.keySet()) {
+            flushPage(pid);
         }
     }
 
@@ -488,6 +548,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         idToPages.remove(pid);
+        idToTime.remove(pid);
     }
 
     /**
@@ -497,14 +558,14 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
-        Page p = idToPages.get(pid);
-        TransactionId tid = p.isDirty();        // flush it if it is dirty
-        if(tid != null){
-            Database.getLogFile().logWrite(tid,p.getBeforeImage(),p);
-            Database.getLogFile().force();            // write to disk
-            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(p);
-            p.markDirty(false,tid);
-        }
+        Page rtPg=idToPages.get(pid);
+
+        Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(rtPg);
+
+        TransactionId tid=rtPg.isDirty();
+
+        //rtPg.markDirty(false,tid);
+        rtPg.markDirty(false,null);
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -547,8 +608,6 @@ public class BufferPool {
         }
         if (pageId == null)
             throw  new DbException("failed to evict page");
-        Page page = idToPages.get(pageId);         // evict page
-        idToPages.remove(pageId);
-        idToTime.remove(pageId);
+        discardPage(pageId);
     }
 }
