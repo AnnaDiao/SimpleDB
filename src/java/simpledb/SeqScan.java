@@ -1,5 +1,6 @@
 package simpledb;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -81,7 +82,7 @@ public class SeqScan implements OpIterator {
         this(tid, tableId, Database.getCatalog().getTableName(tableId));
     }
 
-    public void open() throws DbException, TransactionAbortedException {
+    public void open() throws DbException, TransactionAbortedException, IOException {
         // some code goes here
         dbfItr=Database.getCatalog().getDatabaseFile(tableId).iterator(scanTid);
         dbfItr.open();
@@ -116,30 +117,35 @@ public class SeqScan implements OpIterator {
         //List<Type> tmpType = new ArrayList<>();
         Type[] tmpType=new Type[pos];
         String[] tmpName=new String[pos];
+        StringBuilder neigui;
         for(int i=0;i<pos;i++)
         {
             tmpType[i]=(tmpTpdesc.getFieldType(i));     //append 类型
 
             String dropName=tmpTpdesc.getFieldName(i);  //判断名字是否为空
-            StringBuilder tmpStr = new StringBuilder();
-            tmpStr.append(foreStr);
+            //StringBuilder tmpStr = new StringBuilder();     //
+            String tmpStr="";
+            tmpStr+=foreStr;
             if(dropName==null)
             {
-                tmpStr.append("null");
+
+                //tmpStr.append("null");
+                tmpStr+="null";
             }
             else
             {
-                tmpStr.append(dropName);
+                //tmpStr.append(dropName);
+                tmpStr+=dropName;
             }
 
-            tmpName[i]=(tmpStr.toString());
+            tmpName[i]=(tmpStr);
         }
 
         TupleDesc rtTd=new TupleDesc(tmpType,tmpName);
         return rtTd;
     }//what。。。//就是把表名改了     //这是什么操作啊
 
-    public boolean hasNext() throws TransactionAbortedException, DbException {
+    public boolean hasNext() throws TransactionAbortedException, DbException, IOException {
         // some code goes here
         if(dbfItr==null)
             throw new NullPointerException("Wrong in Scan! Itr hasn't been open yet.");
@@ -147,7 +153,7 @@ public class SeqScan implements OpIterator {
     }
 
     public Tuple next() throws NoSuchElementException,
-            TransactionAbortedException, DbException {
+            TransactionAbortedException, DbException, IOException {
         // some code goes here
         if(!hasNext())
             throw new NoSuchElementException("Wrong in Scan! No next tuple.");
@@ -160,7 +166,7 @@ public class SeqScan implements OpIterator {
     }
 
     public void rewind() throws DbException, NoSuchElementException,
-            TransactionAbortedException {
+            TransactionAbortedException, IOException {
         // some code goes here
         dbfItr.rewind();//.open应该同理
     }

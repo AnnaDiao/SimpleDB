@@ -57,7 +57,7 @@ public class BTreeNextKeyLockingTest extends SimpleDbTestBase {
 			count++;
 		}
 		assertTrue(key != null);
-
+		System.out.println("BNKT0");
 		// now find all tuples containing that key and delete them, as well as the next key
 		IndexPredicate ipred = new IndexPredicate(Op.EQUALS, key);
 		DbFileIterator fit = bigFile.indexIterator(tid, ipred);
@@ -66,7 +66,7 @@ public class BTreeNextKeyLockingTest extends SimpleDbTestBase {
 			Database.getBufferPool().deleteTuple(tid, fit.next());
 		}
 		fit.close();
-
+		System.out.println("BNKT1");
 		count = 0;
 		while(count == 0) {
 			key = new IntField(((IntField) key).getValue() + 1);
@@ -82,7 +82,7 @@ public class BTreeNextKeyLockingTest extends SimpleDbTestBase {
 
 		Database.getBufferPool().transactionComplete(tid);
 		tid = new TransactionId();
-
+		System.out.println("BNKT2");
 		// search for tuples less than or equal to the key
 		ipred = new IndexPredicate(Op.LESS_THAN_OR_EQ, key);
 		fit = bigFile.indexIterator(tid, ipred);
@@ -98,10 +98,10 @@ public class BTreeNextKeyLockingTest extends SimpleDbTestBase {
 		TransactionId tid1 = new TransactionId();
 		BTreeWriter bw1 = new BTreeWriter(tid1, bigFile, ((IntField) key).getValue(), 1);
 		bw1.start();
-
+		System.out.println("BNKT3");
 		// allow thread to start
 		Thread.sleep(POLL_INTERVAL);
-
+		System.out.println("BNKT4");
 		// search for tuples less than or equal to the key
 		ipred = new IndexPredicate(Op.LESS_THAN_OR_EQ, key);
 		fit = bigFile.indexIterator(tid, ipred);
@@ -122,14 +122,15 @@ public class BTreeNextKeyLockingTest extends SimpleDbTestBase {
 
 		// now let the inserts happen
 		Database.getBufferPool().transactionComplete(tid);
-
+		int roundd=0;
 		while(!bw1.succeeded()) {
+			System.out.println(roundd++);
 			Thread.sleep(POLL_INTERVAL);
 			if(bw1.succeeded()) {
 				Database.getBufferPool().transactionComplete(tid1);
 			}
 		}
-
+		System.out.println("BNKT6");
 		// clean up
 		bw1 = null;
 	}

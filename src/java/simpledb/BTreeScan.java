@@ -1,6 +1,7 @@
 package simpledb;
 
 import javax.xml.crypto.Data;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -102,7 +103,7 @@ public class BTreeScan implements OpIterator {
 		this(tid, tableid, Database.getCatalog().getTableName(tableid), ipred);
 	}
 
-	public void open() throws DbException, TransactionAbortedException {
+	public void open() throws DbException, TransactionAbortedException, IOException {
 		if (isOpen)
 			throw new DbException("double open on one OpIterator.");
 
@@ -123,14 +124,14 @@ public class BTreeScan implements OpIterator {
 		return myTd;
 	}
 
-	public boolean hasNext() throws TransactionAbortedException, DbException {
+	public boolean hasNext() throws TransactionAbortedException, DbException, IOException {
 		if (!isOpen)
 			throw new IllegalStateException("iterator is closed");
 		return it.hasNext();
 	}
 
 	public Tuple next() throws NoSuchElementException,
-	TransactionAbortedException, DbException {
+			TransactionAbortedException, DbException, IOException {
 		if (!isOpen)
 			throw new IllegalStateException("iterator is closed");
 
@@ -143,7 +144,7 @@ public class BTreeScan implements OpIterator {
 	}
 
 	public void rewind() throws DbException, NoSuchElementException,
-	TransactionAbortedException {
+			TransactionAbortedException, IOException {
 		close();
 		open();
 	}

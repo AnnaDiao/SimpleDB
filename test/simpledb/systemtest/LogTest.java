@@ -19,7 +19,7 @@ public class LogTest extends SimpleDbTestBase {
     HeapFile hf2;
 
     void insertRow(HeapFile hf, Transaction t, int v1, int v2)
-        throws DbException, TransactionAbortedException {
+            throws DbException, TransactionAbortedException, IOException {
         // Create a row to insert
         TupleDesc twoIntColumns = Utility.getTupleDesc(2);
         Tuple value = new Tuple(twoIntColumns);
@@ -39,7 +39,7 @@ public class LogTest extends SimpleDbTestBase {
 
     // check that the specified tuple is, or is not, present
     void look(HeapFile hf, Transaction t, int v1, boolean present)
-        throws DbException, TransactionAbortedException {
+            throws DbException, TransactionAbortedException, IOException {
         int count = 0;
         SeqScan scan = new SeqScan(t.getId(), hf.getId(), "");
         scan.open();

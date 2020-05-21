@@ -200,7 +200,7 @@ public class BTreeFile implements DbFile {
 	 */
 	//为ReverseScan新建的类 原理同findLeafPage
 	private BTreeLeafPage findLastLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
-										   Field f) throws TransactionAbortedException, DbException {
+										   Field f) throws TransactionAbortedException, DbException, IOException {
 		BTreeLeafPage rtPage=null;
 
 		if(pid.pgcateg()==BTreePageId.LEAF) {
@@ -247,15 +247,15 @@ public class BTreeFile implements DbFile {
 		return rtPage;
 	}
 	BTreeLeafPage findLastLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
-								   Field f) throws TransactionAbortedException, DbException {
+								   Field f) throws TransactionAbortedException, DbException, IOException {
 		return findLastLeafPage(tid,new HashMap<PageId,Page>(),pid,perm,f);
 	}
 
 	// 不确定 hash是不是对的--是对的0423
 	//正向findpage,同理代码的解释略去
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
-			Field f) 
-					throws DbException, TransactionAbortedException {
+			Field f)
+			throws DbException, TransactionAbortedException, IOException {
 		// some code goes here
 			BTreeLeafPage rtPage=null;
 
@@ -320,7 +320,7 @@ public class BTreeFile implements DbFile {
 	 */
 	BTreeLeafPage findLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
 			Field f)
-					throws DbException, TransactionAbortedException {
+			throws DbException, TransactionAbortedException, IOException {
 		return findLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
 	}
 
@@ -643,7 +643,7 @@ public class BTreeFile implements DbFile {
 	 * @throws TransactionAbortedException
 	 */
 	Page getPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm)
-			throws DbException, TransactionAbortedException {
+			throws DbException, TransactionAbortedException, IOException {
 		if(dirtypages.containsKey(pid)) {
 			return dirtypages.get(pid);
 		}
@@ -1524,7 +1524,7 @@ class BTreeFileIterator extends AbstractDbFileIterator {
 	/**
 	 * Open this iterator by getting an iterator on the first leaf page
 	 */
-	public void open() throws DbException, TransactionAbortedException {
+	public void open() throws DbException, TransactionAbortedException, IOException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
 				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
 		BTreePageId root = rootPtr.getRootId();
@@ -1539,7 +1539,7 @@ class BTreeFileIterator extends AbstractDbFileIterator {
 	 * @return the next tuple, or null if none exists
 	 */
 	@Override
-	protected Tuple readNext() throws TransactionAbortedException, DbException {
+	protected Tuple readNext() throws TransactionAbortedException, DbException, IOException {
 		if (it != null && !it.hasNext())
 			it = null;
 
@@ -1565,7 +1565,7 @@ class BTreeFileIterator extends AbstractDbFileIterator {
 	/**
 	 * rewind this iterator back to the beginning of the tuples
 	 */
-	public void rewind() throws DbException, TransactionAbortedException {
+	public void rewind() throws DbException, TransactionAbortedException, IOException {
 		close();
 		open();
 	}
@@ -1609,7 +1609,7 @@ class BTreeSearchIterator extends AbstractDbFileIterator {
 	 * Open this iterator by getting an iterator on the first leaf page applicable
 	 * for the given predicate operation
 	 */
-	public void open() throws DbException, TransactionAbortedException {
+	public void open() throws DbException, TransactionAbortedException, IOException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
 				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
 		BTreePageId root = rootPtr.getRootId();
@@ -1631,7 +1631,7 @@ class BTreeSearchIterator extends AbstractDbFileIterator {
 	 */
 	@Override
 	protected Tuple readNext() throws TransactionAbortedException, DbException,
-	NoSuchElementException {
+			NoSuchElementException, IOException {
 		while (it != null) {
 
 			while (it.hasNext()) {
@@ -1670,7 +1670,7 @@ class BTreeSearchIterator extends AbstractDbFileIterator {
 	/**
 	 * rewind this iterator back to the beginning of the tuples
 	 */
-	public void rewind() throws DbException, TransactionAbortedException {
+	public void rewind() throws DbException, TransactionAbortedException, IOException {
 		close();
 		open();
 	}
@@ -1699,7 +1699,7 @@ class BTreeFileReverseIterator extends AbstractDbFileIterator{
 	}
 
 	@Override
-	protected Tuple readNext() throws DbException, TransactionAbortedException {
+	protected Tuple readNext() throws DbException, TransactionAbortedException, IOException {
 		if (it != null && !it.hasNext())
 			it = null;
 
@@ -1723,7 +1723,7 @@ class BTreeFileReverseIterator extends AbstractDbFileIterator{
 	}
 
 	@Override
-	public void open() throws DbException, TransactionAbortedException {
+	public void open() throws DbException, TransactionAbortedException, IOException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
 				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
 		BTreePageId root = rootPtr.getRootId();
@@ -1732,7 +1732,7 @@ class BTreeFileReverseIterator extends AbstractDbFileIterator{
 	}
 
 	@Override
-	public void rewind() throws DbException, TransactionAbortedException {
+	public void rewind() throws DbException, TransactionAbortedException, IOException {
 		close();
 		open();
 	}
@@ -1770,7 +1770,7 @@ class BTreeReverseSearchIterator extends AbstractDbFileIterator {
 	 * for the given predicate operation
 	 */
 
-	public void open() throws DbException, TransactionAbortedException {
+	public void open() throws DbException, TransactionAbortedException, IOException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
 				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
 		BTreePageId root = rootPtr.getRootId();
@@ -1792,7 +1792,7 @@ class BTreeReverseSearchIterator extends AbstractDbFileIterator {
 	 */
 	@Override
 	protected Tuple readNext() throws TransactionAbortedException, DbException,
-			NoSuchElementException {
+			NoSuchElementException, IOException {
 		while (it != null) {
 
 			while (it.hasNext()) {
@@ -1831,7 +1831,7 @@ class BTreeReverseSearchIterator extends AbstractDbFileIterator {
 	/**
 	 * rewind this iterator back to the beginning of the tuples
 	 */
-	public void rewind() throws DbException, TransactionAbortedException {
+	public void rewind() throws DbException, TransactionAbortedException, IOException {
 		close();
 		open();
 	}

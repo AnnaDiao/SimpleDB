@@ -183,7 +183,7 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
-            TransactionAbortedException {
+            TransactionAbortedException,IOException {
         // some code goes here
         if(t.getRecordId().getPageId().getPageNumber()>numPages())
             throw new DbException("Tuple not belong to this file");
@@ -226,14 +226,14 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public void open() throws DbException, TransactionAbortedException {
+        public void open() throws DbException, TransactionAbortedException,IOException {
             pageNo=0;
             HeapPageId tmpPgId=new HeapPageId(getId(),pageNo);      //见HeapPageId的声名
             pageTupleItr=((HeapPage) Database.getBufferPool().getPage(tid,tmpPgId,Permissions.READ_ONLY)).iterator();
 
         }
 
-        public boolean hasNext() throws TransactionAbortedException, DbException {
+        public boolean hasNext() throws TransactionAbortedException, DbException,IOException {
             if(pageNo==-1)
                 return false;
             if(pageTupleItr.hasNext())
@@ -249,7 +249,7 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException, IOException {
             if(!hasNext())
             {
                 throw new NoSuchElementException("Wrong in HeapFile! No next Tuple!");
@@ -258,7 +258,7 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public void rewind() throws DbException, TransactionAbortedException {
+        public void rewind() throws DbException, TransactionAbortedException, IOException {
             open();
         }
 

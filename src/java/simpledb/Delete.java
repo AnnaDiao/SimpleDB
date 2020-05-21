@@ -39,7 +39,7 @@ public class Delete extends Operator {
         return this.theTd;
     }
 
-    public void open() throws DbException, TransactionAbortedException {
+    public void open() throws DbException, TransactionAbortedException, IOException {
         // some code goes here
         super.open();
         this.thechild.open();
@@ -53,7 +53,7 @@ public class Delete extends Operator {
         this.called=0;
     }
 
-    public void rewind() throws DbException, TransactionAbortedException {
+    public void rewind() throws DbException, TransactionAbortedException, IOException {
         // some code goes here
         this.thechild.rewind();;
         this.cnt=0;
@@ -69,7 +69,7 @@ public class Delete extends Operator {
      * @see Database#getBufferPool
      * @see BufferPool#deleteTuple
      */
-    protected Tuple fetchNext() throws TransactionAbortedException, DbException {
+    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException {
         // some code goes here
 
         if(this.called==1)
