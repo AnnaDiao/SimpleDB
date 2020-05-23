@@ -43,14 +43,14 @@ public class BufferPool {
         ConcurrentHashMap<TransactionId,PageId> waitList;
 
         public PageLockRecorder(){
-            stateRecord = new ConcurrentHashMap<PageId, List<LockStru>>();
+            stateRecord = new ConcurrentHashMap<>();
             waitList=new ConcurrentHashMap<>();
         }
 
         public synchronized boolean requireLock(PageId pid, TransactionId tid, int lockType){
             if(stateRecord.get(pid) == null){
                 LockStru lockStru = new LockStru(tid, lockType);
-                Vector<LockStru> lockStrus = new Vector<>();
+                List<LockStru> lockStrus = new Vector<>();
                 lockStrus.add(lockStru);
                 stateRecord.put(pid, lockStrus);
                 if(waitList.get(tid)!=null)
@@ -137,12 +137,10 @@ public class BufferPool {
         private synchronized boolean waitSrc(TransactionId curHolder, List<PageId> curSrc, List<TransactionId> TestedTids) {
             //来判断等待
            PageId waitPg = waitList.get(curHolder);//这页事务正在等待的 资源pid
-
             if (waitPg == null) {   //如果这个tid什么资源都没有在等待 false
                return false;
 
             }
-
            for (PageId tmpPid : curSrc) {
 
                 if (tmpPid == waitPg)
@@ -150,7 +148,6 @@ public class BufferPool {
                     return true;    //直接等待
                 }
             }
-
             //检测间接等待
             List<LockStru> holders=stateRecord.get(waitPg);   //拥有现在这个事务tid等待的pid的事务们
 
@@ -158,11 +155,10 @@ public class BufferPool {
             {
                 return false;//没有 就没有
             }
-
             for (LockStru pls : holders) {      //否则，遍历这些事务
                TransactionId holder = pls.tid;
-               if (!TestedTids.contains(holder)) {      //如果有新的没有被测试的事务tid
-                   TestedTids.add(holder);
+               if (!TestedTids.contains(holder)) {      //如果有新的没有被测试的事务tid,添加进已经在测试的事务（tested） 进入下一层
+                   TestedTids.add(holder);              //否则，不进行处理，防止无限递归
                    boolean isWaiting = waitSrc(holder, curSrc, TestedTids);
                         if (isWaiting)
                         {
@@ -283,6 +279,7 @@ public class BufferPool {
 
 
         boolean flag= lockRecorder.requireLock(pid,tid,lockType);
+
         while (!flag)
         {
 /*
@@ -295,10 +292,6 @@ public class BufferPool {
             if(now-start > timeout){
                 throw new TransactionAbortedException();
             }
-
-
-
-
              //   Thread.sleep(500);
 
 
@@ -368,7 +361,7 @@ public class BufferPool {
         if(commit){
             flushPages(tid);
         }else{
-            restorePages(tid);
+            abortPages(tid);
         }
         for(PageId pid: idToPages.keySet())
         {
@@ -377,13 +370,14 @@ public class BufferPool {
         }
 
     }
-    private synchronized void restorePages(TransactionId tid) throws IOException {
+    private synchronized void abortPages(TransactionId tid) throws IOException {
         for (PageId pid : idToPages.keySet()) {
             Page page = idToPages.get(pid);
+
             if (page.isDirty() == tid) {
                 int tabId = pid.getTableId();
                 DbFile file =  Database.getCatalog().getDatabaseFile(tabId);
-                Page pageFromDisk = file.readPage(pid);
+                Page pageFromDisk = file.readPage(pid);//读回来
                 idToPages.put(pid, pageFromDisk);
             }
         }
@@ -515,24 +509,24 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         PageId pageId = null;
-        int oldestAge = -1;         // find the oldest page to evict (which is not dirty)
+        int minTime = -1;         // find the oldest page to evict (which is not dirty)
         for (PageId pid: idToTime.keySet()) {
             Page page = idToPages.get(pid);            // skip dirty page
             if (page.isDirty() != null)
                 continue;
             if (pageId == null) {
                 pageId = pid;
-                oldestAge = idToTime.get(pid);
+                minTime = idToTime.get(pid);
                 continue;
             }
-            if (idToTime.get(pid) < oldestAge)
+            if (idToTime.get(pid) < minTime)
             {
                 pageId = pid;
-                oldestAge = idToTime.get(pid);
+                minTime = idToTime.get(pid);
             }
         }
         if (pageId == null)
-            throw  new DbException("failed to evict page");
+            throw  new DbException("Wrong in evict Page!");
         discardPage(pageId);
     }
 }
