@@ -129,7 +129,7 @@ public class Aggregate extends Operator {
     }
 
     public void open() throws NoSuchElementException, DbException,
-            TransactionAbortedException, IOException {
+            TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         theChild.open();        //重要！！！！！！！
         while(theChild.hasNext())           //while!!!
@@ -149,7 +149,7 @@ public class Aggregate extends Operator {
      * the result tuple should contain one field representing the result of the
      * aggregate. Should return null if there are no more tuples.
      */
-    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException {
+    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
         if(synItr.hasNext())
         {
@@ -158,7 +158,7 @@ public class Aggregate extends Operator {
         return null;
     }
 
-    public void rewind() throws DbException, TransactionAbortedException, IOException {
+    public void rewind() throws DbException, TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
 
         synItr.rewind();

@@ -47,7 +47,7 @@ public class Insert extends Operator {
         return this.theTd;
     }
 
-    public void open() throws DbException, TransactionAbortedException, IOException {
+    public void open() throws DbException, TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         super.open();
         this.thechild.open();
@@ -82,7 +82,7 @@ public class Insert extends Operator {
      * @see BufferPool#insertTuple
      */
     // 重要！！！ 不是一个tp 是一整串！
-    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException {
+    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
         if(this.called==1)
             return null;

@@ -141,7 +141,7 @@ public class HeapFile implements DbFile {
     //不要忘记从BufforPool来取!!!!
     //用Databse.bufforpool
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
-            throws DbException, IOException, TransactionAbortedException {
+            throws DbException, IOException, TransactionAbortedException, InterruptedException {
         // some code goes here
 
         ArrayList<Page> rtPage = new ArrayList<>();
@@ -183,7 +183,7 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
-            TransactionAbortedException,IOException {
+            TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         if(t.getRecordId().getPageId().getPageNumber()>numPages())
             throw new DbException("Tuple not belong to this file");
@@ -226,14 +226,14 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public void open() throws DbException, TransactionAbortedException,IOException {
+        public void open() throws DbException, TransactionAbortedException, IOException, InterruptedException {
             pageNo=0;
             HeapPageId tmpPgId=new HeapPageId(getId(),pageNo);      //见HeapPageId的声名
             pageTupleItr=((HeapPage) Database.getBufferPool().getPage(tid,tmpPgId,Permissions.READ_ONLY)).iterator();
 
         }
 
-        public boolean hasNext() throws TransactionAbortedException, DbException,IOException {
+        public boolean hasNext() throws TransactionAbortedException, DbException, IOException, InterruptedException {
             if(pageNo==-1)
                 return false;
             if(pageTupleItr.hasNext())
@@ -249,7 +249,7 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException, IOException {
+        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException, IOException, InterruptedException {
             if(!hasNext())
             {
                 throw new NoSuchElementException("Wrong in HeapFile! No next Tuple!");
@@ -258,7 +258,7 @@ public class HeapFile implements DbFile {
         }
 
         @Override
-        public void rewind() throws DbException, TransactionAbortedException, IOException {
+        public void rewind() throws DbException, TransactionAbortedException, IOException, InterruptedException {
             open();
         }
 

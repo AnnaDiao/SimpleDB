@@ -67,7 +67,7 @@ public class Join extends Operator {
     }
 
     public void open() throws DbException, NoSuchElementException,
-            TransactionAbortedException, IOException {
+            TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         super.open();
         childOne.open();
@@ -82,7 +82,7 @@ public class Join extends Operator {
         childTwo.close();
     }
 
-    public void rewind() throws DbException, TransactionAbortedException, IOException {
+    public void rewind() throws DbException, TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         childOne.rewind();
         childTwo.rewind();
@@ -108,7 +108,7 @@ public class Join extends Operator {
      */
     // theP自带比较
     //因为一个tuple1有可能匹配多个tuple2，记得存档//keng!!!
-    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException {
+    protected Tuple fetchNext() throws TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
         while(remTup!=null || childOne.hasNext())
         {

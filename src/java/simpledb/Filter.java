@@ -38,7 +38,7 @@ public class Filter extends Operator {
     }   //什么原理
 
     public void open() throws DbException, NoSuchElementException,
-            TransactionAbortedException, IOException {
+            TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         super.open();
         theChild.open();
@@ -50,7 +50,7 @@ public class Filter extends Operator {
         theChild.close();
     }
 
-    public void rewind() throws DbException, TransactionAbortedException, IOException {
+    public void rewind() throws DbException, TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         //super.rewind();
         theChild.rewind();
@@ -67,7 +67,7 @@ public class Filter extends Operator {
      * @see Predicate#filter
      */
     protected Tuple fetchNext() throws NoSuchElementException,
-            TransactionAbortedException, DbException, IOException {
+            TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
 
         while(theChild.hasNext())

@@ -82,7 +82,7 @@ public class SeqScan implements OpIterator {
         this(tid, tableId, Database.getCatalog().getTableName(tableId));
     }
 
-    public void open() throws DbException, TransactionAbortedException, IOException {
+    public void open() throws DbException, TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         dbfItr=Database.getCatalog().getDatabaseFile(tableId).iterator(scanTid);
         dbfItr.open();
@@ -145,7 +145,7 @@ public class SeqScan implements OpIterator {
         return rtTd;
     }//what。。。//就是把表名改了     //这是什么操作啊
 
-    public boolean hasNext() throws TransactionAbortedException, DbException, IOException {
+    public boolean hasNext() throws TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
         if(dbfItr==null)
             throw new NullPointerException("Wrong in Scan! Itr hasn't been open yet.");
@@ -153,7 +153,7 @@ public class SeqScan implements OpIterator {
     }
 
     public Tuple next() throws NoSuchElementException,
-            TransactionAbortedException, DbException, IOException {
+            TransactionAbortedException, DbException, IOException, InterruptedException {
         // some code goes here
         if(!hasNext())
             throw new NoSuchElementException("Wrong in Scan! No next tuple.");
@@ -166,7 +166,7 @@ public class SeqScan implements OpIterator {
     }
 
     public void rewind() throws DbException, NoSuchElementException,
-            TransactionAbortedException, IOException {
+            TransactionAbortedException, IOException, InterruptedException {
         // some code goes here
         dbfItr.rewind();//.open应该同理
     }

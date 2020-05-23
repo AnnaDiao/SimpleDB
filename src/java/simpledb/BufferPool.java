@@ -104,12 +104,12 @@ public class BufferPool {
             waitList.put(tid,pid);
             return false;
         }
-        public synchronized boolean releaseLock(PageId pid,TransactionId tid){
+        public synchronized void releaseLock(PageId pid, TransactionId tid){
 
             List<LockStru> lockStrus = stateRecord.get(pid);
             if(lockStrus ==null)
             {
-                return true;
+                return;
             }
             for(int i = 0; i< lockStrus.size(); i++){
                 LockStru lockStru = lockStrus.get(i);
@@ -118,10 +118,9 @@ public class BufferPool {
 
                     if(lockStrus.size() == 0)
                         stateRecord.remove(pid);
-                    return true;
+                    return;
                 }
             }
-            return false;
         }
         public synchronized boolean holdsLock(PageId pid,TransactionId tid){
             if(stateRecord.get(pid) == null)
@@ -135,30 +134,36 @@ public class BufferPool {
             return false;
         }
 
-        private synchronized boolean waitSrc(TransactionId curHolder, List<PageId> curSrc, TransactionId tid) {
-           PageId waitPg = waitList.get(curHolder);
-            if (waitPg == null) {
+        private synchronized boolean waitSrc(TransactionId curHolder, List<PageId> curSrc, List<TransactionId> TestedTids) {
+            //来判断等待
+           PageId waitPg = waitList.get(curHolder);//这页事务正在等待的 资源pid
+
+            if (waitPg == null) {   //如果这个tid什么资源都没有在等待 false
                return false;
 
             }
+
            for (PageId tmpPid : curSrc) {
+
                 if (tmpPid == waitPg)
                 {
                     return true;    //直接等待
                 }
             }
-            //间接等待
 
-            List<LockStru> holders=stateRecord.get(waitPg);
+            //检测间接等待
+            List<LockStru> holders=stateRecord.get(waitPg);   //拥有现在这个事务tid等待的pid的事务们
+
             if(holders==null||holders.size()==0)
             {
-                return false;
+                return false;//没有 就没有
             }
 
-            for (LockStru pls : holders) {
+            for (LockStru pls : holders) {      //否则，遍历这些事务
                TransactionId holder = pls.tid;
-               if (holder!=tid) {
-                   boolean isWaiting = waitSrc(holder, curSrc, tid);
+               if (!TestedTids.contains(holder)) {      //如果有新的没有被测试的事务tid
+                   TestedTids.add(holder);
+                   boolean isWaiting = waitSrc(holder, curSrc, TestedTids);
                         if (isWaiting)
                         {
                             return true;
@@ -170,13 +175,19 @@ public class BufferPool {
 
         public synchronized boolean isDeadLock(PageId pid,TransactionId tid)
         {
+            //System.out.println("dd?");
+            List<TransactionId> TestedTids=new ArrayList<>();
+            TestedTids.add(tid);
             //找到现在占用的Pid的资源，看他是否需要tid现在占用的资源
-            List<LockStru> lcLst=stateRecord.get(pid);
-            if(lcLst==null||lcLst.size()==0)
+
+            List<LockStru> lcLst=stateRecord.get(pid);  //获取现在霸占着pid的事务
+
+            if(lcLst==null||lcLst.size()==0)    //没有最好
             {
                 return false;
             }
-            List<PageId> tidRs=new ArrayList<>();      //tid占有的资源
+
+            List<PageId> tidRs=new ArrayList<>();      //tid占有的page们
 
             for (Map.Entry<PageId, List<LockStru>> entry : stateRecord.entrySet()) {
                 for (LockStru ls : entry.getValue()) {
@@ -187,108 +198,18 @@ public class BufferPool {
             }
 
             /*******************************/
-            for(LockStru ls:lcLst)
+            for(LockStru ls:lcLst)      //看现在拿着pid的tid们有没有间接或者直接等待 tisRs 的
             {
                 TransactionId curHolder=ls.tid;
                 if(curHolder!=tid) {
-                    boolean isWaiting=waitSrc(curHolder,tidRs,tid);
+                    boolean isWaiting=waitSrc(curHolder,tidRs,TestedTids);
                     if(isWaiting)
                         return true;
                 }
             }
 
-        return false;
+        return true;
 
-  /*
-            List<TransactionId> holdPid=new ArrayList<>();  //现在占用pid的事务tid
-
-            List<PageId> allNeededPages=new ArrayList<>();
-
-            for(LockStru ls:stateRecord.get(pid))
-            {
-                holdPid.add(ls.tid);
-            }
-            for(PageId tmpPid:stateRecord.keySet())
-            {
-                List<LockStru> tmpLs=stateRecord.get(tmpPid);
-                for(LockStru lock:tmpLs)
-                {
-                    if(lock.tid==tid)
-                    {
-                        tidRs.add(tmpPid);
-                    }
-                }
-            }
-/*
-            for(TransactionId t:holdPid)
-            {
-                if(waitList.get(t)!=null)
-                {
-                    if(haveCrush(tidRs,waitList.get(t)))
-                        return true;
-                    else
-                    {
-                        if(allNeededPages.indexOf(waitList.get(t))==-1)
-                        {
-                            allNeededPages.add(waitList.get(t));
-                        }
-                    }
-                }
-            }//直接死锁
-
-            /******间接死锁******/
-       /*     int size=allNeededPages.size();
-            int pos=0;
-            //System.out.println("new round");
-            while (true)
-            {
-                while (pos<size)  //找到占用每一页的tid, 看他们是否在waitList里面等待别的页码
-                {
-                    System.out.println("new round");
-                    PageId Tpid=allNeededPages.get(pos);
-
-                    List<TransactionId> Ttid=new ArrayList<>();
-                    for(LockStru ls:stateRecord.get(Tpid))
-                    {
-                        System.out.println("in R1");
-                        Ttid.add(ls.tid);
-                    }
-
-                    for(TransactionId t:Ttid)
-                    {
-                        System.out.println("in R2");
-                        if(waitList.get(t)!=null)
-                        {
-                            if(haveCrush(tidRs,waitList.get(t)))
-                                return true;
-                            else
-                            {
-                                System.out.println("in R3");
-                                if(allNeededPages.indexOf(waitList.get(t))==-1)
-                                {
-                                    System.out.println("in R4");
-                                    allNeededPages.add(waitList.get(t));
-                                }
-                            }
-                        }
-                    }
-                    pos++;
-                }
-                if(size==allNeededPages.size())
-                {
-                    break;
-                }
-                size=allNeededPages.size();
-                System.out.println(size);
-            }
-            /*
-            for(PageId t:allNeededPages)
-            {
-                    if(haveCrush(tidRs,t))
-                        return true;
-            }*///间接死锁
-
-            //return false;
         }
 
         private synchronized boolean haveCrush(List<PageId> tidRs, PageId pid)
@@ -348,7 +269,7 @@ public class BufferPool {
      * @param perm the requested permissions on the page
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
-            throws TransactionAbortedException, DbException, IOException {
+            throws TransactionAbortedException, DbException, IOException, InterruptedException {
         int lockType;
         if(perm == Permissions.READ_ONLY){
             lockType = 0;
@@ -359,24 +280,28 @@ public class BufferPool {
 
         long start = System.currentTimeMillis();
         long timeout = new Random().nextInt(2000) + 1000;
+
+
         boolean flag= lockRecorder.requireLock(pid,tid,lockType);
         while (!flag)
         {
-            /*
+/*
             if(lockRecorder.isDeadLock(pid,tid))
-                throw new TransactionAbortedException();*/
+                throw new TransactionAbortedException();
+
+ */
 
             long now = System.currentTimeMillis();
             if(now-start > timeout){
                 throw new TransactionAbortedException();
             }
-/*
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-*/
+
+
+
+
+             //   Thread.sleep(500);
+
+
             flag= lockRecorder.requireLock(pid,tid,lockType);
         }
 
@@ -481,7 +406,7 @@ public class BufferPool {
      * @param t the tuple to add
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
-            throws DbException, IOException, TransactionAbortedException {
+            throws DbException, IOException, TransactionAbortedException, InterruptedException {
         // some code goes here
         // not necessary for lab1
         DbFile file = Database.getCatalog().getDatabaseFile(tableId);
@@ -508,7 +433,7 @@ public class BufferPool {
      * @param t the tuple to delete
      */
     public  void deleteTuple(TransactionId tid, Tuple t)
-            throws DbException, IOException, TransactionAbortedException {
+            throws DbException, IOException, TransactionAbortedException, InterruptedException {
         // some code goes here
         // not necessary for lab1
         DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
