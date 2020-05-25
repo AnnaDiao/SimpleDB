@@ -28,7 +28,9 @@ public class BufferPool {
     private  ConcurrentHashMap<PageId,Integer> idToTime;
     private int retriveTime;
     private PageLockRecorder lockRecorder;
+    private TupleLockRecorder lockTupleRecorder;
 
+    boolean isUsingTpLock;
 
     private static class LockStru {
         TransactionId tid;
@@ -38,6 +40,137 @@ public class BufferPool {
             this.locktype = locktype;
         }
     }
+
+    private static class TupleLockRecorder{
+
+        ConcurrentHashMap<RecordId, List<LockStru>> stateRecord;
+        ConcurrentHashMap<PageId,List<RecordId>> pid2rids;
+
+        public TupleLockRecorder(){
+            stateRecord = new ConcurrentHashMap<>();
+            pid2rids=new ConcurrentHashMap<>();
+        }
+
+        public synchronized void putInpage(RecordId rid)
+        {
+            if(pid2rids.get(rid.getPageId())==null)
+            {
+                List<RecordId> tmpLst=new ArrayList<>();
+                tmpLst.add(rid);
+                pid2rids.put(rid.getPageId(),tmpLst);
+                return;
+            }
+            else
+            {
+                List<RecordId> tmpLst=pid2rids.get(rid.getPageId());
+                tmpLst.add(rid);
+                pid2rids.put(rid.getPageId(),tmpLst);
+                return;
+            }
+        }
+
+        public synchronized boolean requireTupleLock(RecordId rid, TransactionId tid, int lockType){
+            if(stateRecord.get(rid) == null){
+                LockStru lockStru = new LockStru(tid, lockType);
+                List<LockStru> lockStrus = new Vector<>();
+                lockStrus.add(lockStru);
+                stateRecord.put(rid, lockStrus);
+
+                /*********************/
+                putInpage(rid);
+                return true;
+            }
+
+            List<LockStru> lockStrus = stateRecord.get(rid);
+            for(LockStru lockStru : lockStrus){
+                if(lockStru.tid == tid){
+                    if(lockStru.locktype == lockType)
+                    {
+                        /*********************/
+                        putInpage(rid);
+                        return true;
+                    }
+                    //  if(lock.locktype == 1)
+                    //    return true;
+                    if(lockStrus.size()==1){
+                        lockStru.locktype = 1;
+                        /*********************/
+                        putInpage(rid);
+                        return true;
+                    }
+                    else{
+
+                        return false;
+                    }
+                }
+            }
+            if (lockStrus.get(0).locktype ==1){
+
+                return false;
+            }
+            if(lockType == 0){
+                LockStru lockStru = new LockStru(tid, 0);
+                lockStrus.add(lockStru);
+                stateRecord.put(rid, lockStrus);
+
+                /*********************/
+                putInpage(rid);
+                return true;
+            }
+
+            return false;
+        }
+        public synchronized void releaseTupleLock(RecordId rid, TransactionId tid){
+
+            List<LockStru> lockStrus = stateRecord.get(rid);
+            if(lockStrus ==null)
+            {
+                return;
+            }
+            for(int i = 0; i< lockStrus.size(); i++){
+                LockStru lockStru = lockStrus.get(i);
+                if(lockStru.tid == tid){
+                    lockStrus.remove(lockStru);
+
+                    if(lockStrus.size() == 0)
+                        stateRecord.remove(rid);
+                    return;
+                }
+            }
+
+
+            List<RecordId> tmpLst=pid2rids.get(rid.getPageId());
+            tmpLst.remove(rid);
+            pid2rids.put(rid.getPageId(),tmpLst);
+        }
+        public synchronized boolean holdsTupleLock(RecordId rid,TransactionId tid){
+            if(stateRecord.get(rid) == null)
+                return false;
+            List<LockStru> lockStrus = stateRecord.get(rid);
+            for(LockStru lockStru : lockStrus){
+                if(lockStru.tid == tid){
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public synchronized boolean tupleInPage(RecordId rid,PageId pid)
+        {
+            List<RecordId> tmpLst=pid2rids.get(rid.getPageId());
+            for(RecordId r:tmpLst)
+            {
+                if(r==rid)
+                    return true;
+            }
+
+
+            return false;
+        }
+
+    }
+
+
     private static class PageLockRecorder {
         ConcurrentHashMap<PageId, List<LockStru>> stateRecord;
         ConcurrentHashMap<TransactionId,PageId> waitList;
@@ -233,6 +366,8 @@ public class BufferPool {
         idToTime = new ConcurrentHashMap<>();
         retriveTime = 0;
         lockRecorder = new PageLockRecorder();
+        lockTupleRecorder=new TupleLockRecorder();
+        isUsingTpLock=false;
     }
 
     public static int getPageSize() {
@@ -279,6 +414,8 @@ public class BufferPool {
 
 
         boolean flag= lockRecorder.requireLock(pid,tid,lockType);
+
+        
 
         while (!flag)
         {
@@ -329,6 +466,11 @@ public class BufferPool {
         lockRecorder.releaseLock(pid,tid);
     }
 
+    public void releaseTuple(TransactionId tid,RecordId rid)
+    {
+        lockTupleRecorder.releaseTupleLock(rid,tid);
+    }
+
     /**
      * Release all locks associated with a given transaction.
      *
@@ -341,12 +483,16 @@ public class BufferPool {
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
-    public boolean holdsLock(TransactionId tid, PageId p) {
+    public boolean holdsLock(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
-        return lockRecorder.holdsLock(p,tid);
+        return lockRecorder.holdsLock(pid,tid);
     }
 
+    public boolean holdsTupleLock(TransactionId tid,RecordId rid)
+    {
+        return lockTupleRecorder.holdsTupleLock(rid,tid);
+    }
     /**
      * Commit or abort a given transaction; release all locks associated to
      * the transaction.
@@ -367,6 +513,12 @@ public class BufferPool {
         {
             if(holdsLock(tid,pid))
                 releasePage(tid,pid);
+
+            if(isUsingTpLock)
+            {
+
+
+            }
         }
 
     }
