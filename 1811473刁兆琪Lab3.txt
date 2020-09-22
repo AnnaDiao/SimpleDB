@@ -1,3 +1,0 @@
-这次在代码里加入了详尽的注释，因此报告内代码的截图会相应减少。
-ReverseScanTest是exercise4的自定义file。
-特别注意的是，这里我每次点整个类的test都会去运行scantest的函数，要测试ReverseScanTest,请手动测试每一个小函数。
